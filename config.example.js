@@ -1,5 +1,5 @@
 module.exports = {
-	clientId: '1472935323213496485',
-	guildId: '1493187910172676126',
+	clientId: '1234567890123456789',
+	guildId: '1234567890123456789',
 	accentColor: '#476797',
 };
