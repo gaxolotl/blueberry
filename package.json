@@ -1,0 +1,32 @@
+{
+  "name": "blueberry",
+  "version": "0.0.1",
+  "description": "Discord Bot with a bunch of utilities, I think.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --env-file=.env index.js",
+    "deploy": "node --env-file=.env cmd/deploy.js",
+    "deploy-guild": "node --env-file=.env cmd/deploy-guild.js",
+    "lint": "eslint ./*",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bot",
+    "discord",
+    "utilities"
+  ],
+  "author": "gaxolotl",
+  "license": "MPL-2.0",
+  "packageManager": "pnpm@11.10.0",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "chalk": "^5.6.2",
+    "discord.js": "^14.26.4",
+    "image-size": "^2.0.2",
+    "mongoose": "^9.7.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.6.0"
+  }
+}

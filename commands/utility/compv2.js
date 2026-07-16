@@ -1,0 +1,162 @@
+const {
+	SlashCommandBuilder,
+	ContainerBuilder,
+	SectionBuilder,
+	TextDisplayBuilder,
+	ThumbnailBuilder,
+	MediaGalleryBuilder,
+	FileBuilder,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	StringSelectMenuBuilder,
+	AttachmentBuilder,
+	MessageFlags,
+} = require('discord.js');
+const config = require('../../config.js');
+
+const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+
+module.exports = {
+	data: new SlashCommandBuilder()
+		.setName('showcase')
+		.setDescription('Shows off every Components V2 building block in one message'),
+
+	async execute(interaction) {
+		// Components V2 lets you attach a local file and reference it inside
+		// components via the `attachment://<filename>` URI scheme.
+		const fileAttachment = new AttachmentBuilder(
+			Buffer.from('This file is being rendered through a Components V2 File component.'),
+			{ name: 'notes.txt' },
+		);
+
+		// ---- 1. TextDisplay ---------------------------------------------------
+		// Freestanding markdown text. Supports headers, bold, lists, links, etc.
+		const heading = new TextDisplayBuilder().setContent(
+			'# Components V2 Showcase\n' +
+			'-# every builder in one message, generated on demand',
+		);
+
+		// ---- 2. Section + Thumbnail accessory ----------------------------------
+		// A Section pairs one-to-three TextDisplays with a single accessory:
+		// either a Thumbnail or a Button.
+		const thumbnailSection = new SectionBuilder()
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					'### Section with a Thumbnail accessory\n' +
+					'Sections can hold up to 3 text displays next to one image or button.',
+				),
+			)
+			.setThumbnailAccessory(
+				new ThumbnailBuilder()
+					.setURL('https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d7f4ef6498ac018f2c55_Symbol.svg')
+					.setDescription('Discord logo')
+					.setSpoiler(false),
+			);
+
+		// ---- 3. Section + Button accessory --------------------------------------
+		const buttonSection = new SectionBuilder()
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					'### Section with a Button accessory\n' +
+					'Instead of an image, a Section\'s accessory can be a single button.',
+				),
+			)
+			.setButtonAccessory(
+				new ButtonBuilder()
+					.setCustomId('showcase_section_button')
+					.setLabel('Click me')
+					.setStyle(ButtonStyle.Primary),
+			);
+
+		// ---- 4. Separator -------------------------------------------------------
+		// Adds vertical spacing, optionally with a visible divider line.
+		const bigSeparator = new SeparatorBuilder()
+			.setDivider(true)
+			.setSpacing(SeparatorSpacingSize.Large);
+
+		const smallSeparator = new SeparatorBuilder()
+			.setDivider(false)
+			.setSpacing(SeparatorSpacingSize.Small);
+
+		// ---- 5. MediaGallery ------------------------------------------------------
+		// Displays up to 10 images/videos in a gallery grid.
+		const gallery = new MediaGalleryBuilder()
+			.addItems(
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_1.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_2.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_3.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_4.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_5.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_6.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_7.png'),
+				(mediaGalleryItem) => mediaGalleryItem
+					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_8.png'),
+			);
+
+		// ---- 6. File component ------------------------------------------------
+		// Renders an uploaded attachment as a downloadable file block.
+		// Must reference an attachment on the same message via attachment://.
+		const fileDisplay = new FileBuilder().setURL('attachment://notes.txt');
+
+		// ---- 7. ActionRow with Buttons ------------------------------------------
+		const buttonRow = new ActionRowBuilder().addComponents(
+			new ButtonBuilder().setCustomId('showcase_primary').setLabel('Primary').setStyle(ButtonStyle.Primary),
+			new ButtonBuilder().setCustomId('showcase_secondary').setLabel('Secondary').setStyle(ButtonStyle.Secondary),
+			new ButtonBuilder().setCustomId('showcase_success').setLabel('Success').setStyle(ButtonStyle.Success),
+			new ButtonBuilder().setCustomId('showcase_danger').setLabel('Danger').setStyle(ButtonStyle.Danger),
+			new ButtonBuilder().setLabel('Link').setStyle(ButtonStyle.Link).setURL('https://discord.com'),
+		);
+
+		// ---- 8. ActionRow with a StringSelectMenu --------------------------------
+		const selectRow = new ActionRowBuilder().addComponents(
+			new StringSelectMenuBuilder()
+				.setCustomId('showcase_select')
+				.setPlaceholder('Pick a Components V2 builder…')
+				.addOptions(
+					{ label: 'TextDisplay', value: 'text_display', description: 'Freeform markdown text' },
+					{ label: 'Section', value: 'section', description: 'Text + thumbnail/button accessory' },
+					{ label: 'MediaGallery', value: 'media_gallery', description: 'Grid of images/videos' },
+					{ label: 'File', value: 'file', description: 'Uploaded attachment display' },
+					{ label: 'Separator', value: 'separator', description: 'Spacing / divider' },
+				),
+		);
+
+		// ---- 9. Nested Container ------------------------------------------------
+		// A second, differently-accented Container nested inside the top-level
+		// components array to show that containers can be stacked in one message.
+		const nestedContainer = new ContainerBuilder()
+			.setAccentColor(0x57f287)
+			.setSpoiler(false)
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent('A **second Container**, its own accent color and border.'),
+			);
+
+		// ---- Assemble the primary Container --------------------------------------
+		const container = new ContainerBuilder()
+			.setAccentColor(accentColor)
+			.setSpoiler(false)
+			.addTextDisplayComponents(heading)
+			.addSectionComponents(thumbnailSection, buttonSection)
+			.addSeparatorComponents(bigSeparator)
+			.addMediaGalleryComponents(gallery)
+			.addSeparatorComponents(smallSeparator)
+			.addFileComponents(fileDisplay)
+			.addActionRowComponents(buttonRow, selectRow);
+
+		await interaction.reply({
+			components: [container, nestedContainer],
+			files: [fileAttachment],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+		});
+	},
+};
