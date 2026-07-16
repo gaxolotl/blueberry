@@ -15,10 +15,6 @@ const { t } = require('./i18n');
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const CONFIG_PREFIX = 'gcfg';
 
-/**
- * @param {string} guildId
- * @returns {Promise<import('mongoose').Document>}
- */
 async function getGuildConfig(guildId) {
 	let guildConfig = await Guild.findOne({ guildId });
 	if (!guildConfig) {
@@ -27,107 +23,95 @@ async function getGuildConfig(guildId) {
 	return guildConfig;
 }
 
-/**
- * @param {string} content
- * @param {number} [color]
- * @returns {import('discord.js').ContainerBuilder}
- */
 function buildTextContainer(content, color = accentColor) {
 	return new ContainerBuilder()
 		.setAccentColor(color)
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(content));
 }
 
-/**
- * @returns {import('discord.js').ActionRowBuilder}
- */
-function buildBackRow() {
-	return new ActionRowBuilder().addComponents(
-		new ButtonBuilder()
-			.setCustomId(`${CONFIG_PREFIX}:home`)
-			.setLabel('Back')
-			.setEmoji({ name: 'chevronleft', id: '1527044793891295402' })
-			.setStyle(ButtonStyle.Secondary),
-	);
-}
+async function buildConfigHomeContainer(guildConfig) {
+	const guildId = guildConfig.guildId;
 
-/**
- * @param {import('mongoose').Document} guildConfig
- * @returns {import('discord.js').ContainerBuilder}
- */
-function buildConfigHomeContainer(guildConfig) {
+	// Resolve all strings first
 	const currentLangDisplay = guildConfig.language === 'bg' ? '🇧🇬 Bulgarian (bg)' : '🇬🇧 English (en)';
+	const title = await t(guildId, 'config_home_title');
+	const body = await t(guildId, 'config_home_body', { currentLang: currentLangDisplay });
+	const placeholder = await t(guildId, 'config_home_select_placeholder');
+	const langLabel = await t(guildId, 'config_home_lang_label');
+	const langDesc = await t(guildId, 'config_home_lang_desc');
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent('## <:monitorcog:1527035219109085234> Server Configuration'))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## <:monitorcog:1527035219109085234> ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent(
-			[
-				`**Language:** ${currentLangDisplay}`,
-				'-# Configure core server settings below.',
-			].join('\n'),
-		))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new StringSelectMenuBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:nav`)
-					.setPlaceholder('Select a section to configure...')
-					.addOptions(
-						{ label: 'Language', description: 'Set bot response language', value: 'language', emoji: '<:folders:1527035124632522772>' },
-					),
+					.setPlaceholder(placeholder)
+					.addOptions([
+						{ label: langLabel, description: langDesc, value: 'language', emoji: '<:folders:1527035124632522772>' },
+					]),
 			),
 		);
 }
 
-/**
- * @param {import('mongoose').Document} guildConfig
- * @returns {import('discord.js').ContainerBuilder}
- */
-function buildConfigLangContainer(guildConfig) {
+async function buildConfigLangContainer(guildConfig) {
+	const guildId = guildConfig.guildId;
+
+	// Resolve all strings first
+	const title = await t(guildId, 'config_lang_title');
+	const body = await t(guildId, 'config_lang_body');
+	const placeholder = await t(guildId, 'config_lang_select_placeholder');
+	const labelEn = await t(guildId, 'config_lang_option_en');
+	const descEn = await t(guildId, 'config_lang_option_en_desc');
+	const labelBg = await t(guildId, 'config_lang_option_bg');
+	const descBg = await t(guildId, 'config_lang_option_bg_desc');
+	const backBtn = await t(guildId, 'config_back_button');
+
 	const select = new StringSelectMenuBuilder()
 		.setCustomId(`${CONFIG_PREFIX}:lang:set`)
-		.setPlaceholder('Select server language...')
+		.setPlaceholder(placeholder)
 		.addOptions([
-			{ label: 'English', value: 'en', description: 'Set bot responses to English', emoji: '🇬🇧', default: guildConfig.language === 'en' },
-			{ label: 'Bulgarian', value: 'bg', description: 'Set bot responses to Bulgarian', emoji: '🇧🇬', default: guildConfig.language === 'bg' },
+			{ label: labelEn, value: 'en', description: descEn, emoji: '🇬🇧', default: guildConfig.language === 'en' },
+			{ label: labelBg, value: 'bg', description: descBg, emoji: '🇧🇬', default: guildConfig.language === 'bg' },
 		]);
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent('## <:folders:1527035124632522772> Language Settings'))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## <:folders:1527035124632522772> ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent('-# Select the primary language for bot responses and interfaces in this server.'))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
 		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addActionRowComponents(buildBackRow());
+		.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`${CONFIG_PREFIX}:home`)
+					.setLabel(backBtn)
+					.setEmoji({ name: 'chevronleft', id: '1527044793891295402' })
+					.setStyle(ButtonStyle.Secondary),
+			),
+		);
 }
 
-/**
- * @param {string} page
- * @param {import('mongoose').Document} guildConfig
- * @returns {import('discord.js').ContainerBuilder}
- */
-function renderConfigPage(page, guildConfig) {
+async function renderConfigPage(page, guildConfig) {
 	switch (page) {
-	case 'language': return buildConfigLangContainer(guildConfig);
-	default: return buildConfigHomeContainer(guildConfig);
+	case 'language': return await buildConfigLangContainer(guildConfig);
+	default: return await buildConfigHomeContainer(guildConfig);
 	}
 }
 
-/**
- * @param {import('discord.js').MessageComponentInteraction} interaction
- * @param {import('mongoose').Document} guildConfig
- */
 async function handleConfigComponent(interaction, guildConfig) {
 	if (interaction.customId === `${CONFIG_PREFIX}:nav`) {
-		await interaction.update({ components: [renderConfigPage(interaction.values[0], guildConfig)] });
+		await interaction.update({ components: [await renderConfigPage(interaction.values[0], guildConfig)] });
 		return;
 	}
 
 	if (interaction.customId === `${CONFIG_PREFIX}:home`) {
-		await interaction.update({ components: [buildConfigHomeContainer(guildConfig)] });
+		await interaction.update({ components: [await buildConfigHomeContainer(guildConfig)] });
 		return;
 	}
 
@@ -138,12 +122,11 @@ async function handleConfigComponent(interaction, guildConfig) {
 		guildConfig.language = newLang;
 		await guildConfig.save();
 
-		// Fetch the localized confirmation string for this specific server
 		const confirmationText = await t(interaction.guildId, 'lang_updated', {
 			language: newLang.toUpperCase(),
 		});
 
-		await interaction.update({ components: [buildConfigLangContainer(guildConfig)] });
+		await interaction.update({ components: [await buildConfigLangContainer(guildConfig)] });
 		await interaction.followUp({
 			components: [buildTextContainer(confirmationText)],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
@@ -151,14 +134,11 @@ async function handleConfigComponent(interaction, guildConfig) {
 	}
 }
 
-/**
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
 async function startConfigSession(interaction) {
 	let guildConfig = await getGuildConfig(interaction.guildId);
 
 	await interaction.reply({
-		components: [buildConfigHomeContainer(guildConfig)],
+		components: [await buildConfigHomeContainer(guildConfig)],
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 	});
 
@@ -176,7 +156,8 @@ async function startConfigSession(interaction) {
 		}
 		catch (error) {
 			logger.error('Failed to handle guild config interaction:', error);
-			const errorContainer = buildTextContainer('<:x_:1526217756926808174> **Error:** Something went wrong while updating that setting.', 0xFF0000);
+			const errorMsg = await t(interaction.guildId, 'error_config_failed');
+			const errorContainer = buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errorMsg}`, 0xFF0000);
 			if (i.deferred || i.replied) {
 				await i.followUp({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral }).catch(() => null);
 			}
@@ -187,8 +168,9 @@ async function startConfigSession(interaction) {
 	});
 
 	collector.on('end', async () => {
+		const expiredMsg = await t(interaction.guildId, 'error_session_expired');
 		await interaction.editReply({
-			components: [buildTextContainer('-# This configuration session has expired. Run `/config` again.')],
+			components: [buildTextContainer(`-# ${expiredMsg}`)],
 		}).catch(() => null);
 	});
 }

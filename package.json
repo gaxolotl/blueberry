@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node --env-file=.env index.js",
+    "dev": "node --env-file=.env --trace-warnings index.js",
     "deploy": "node --env-file=.env cmd/deploy.js",
     "deploy-guild": "node --env-file=.env cmd/deploy-guild.js",
     "lint": "eslint ./*",

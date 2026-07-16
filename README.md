@@ -8,6 +8,15 @@
 
 ---
 
+# Features
+- Multi-language - Choose from English or Bulgarian (For now, feel free to contribute)
+- Thread based ticket system with claiming, panel, configurator and more
+- Useful utility commands
+- Quick image manipulation commands
+- More to come!
+
+---
+
 # Support the project
 
 If you would like to support the work of the contributors, consider giving the repo a ⭐\
@@ -34,6 +43,11 @@ pnpm install
 
 3. Copy `config.example.js` and `.env.example` and rename to `config.js` and `.env`\
 Fill `.env` with the required vars and adjust `config.js` to your preferences.
+
+4. Build language files
+```bash
+pnpm run build:i18n
+```
 
 4. Deploy commands to single guild or globally
 ```bash

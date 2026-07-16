@@ -18,6 +18,7 @@ const Ticket = require('../models/Ticket');
 const TicketConfig = require('../models/TicketConfig');
 const config = require('../config.js');
 const logger = require('./logger');
+const { t } = require('./i18n');
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const BUTTON_PREFIX = 'ticket';
@@ -108,15 +109,29 @@ function slugifyCategoryId(label) {
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildPanelContainer(ticketConfig) {
-	const categoryLines = ticketConfig.categories.length
-		? ticketConfig.categories.map((category, index) =>
-			`-# **${index + 1}.** ${category.emoji ? `${category.emoji} ` : ''}**${category.label}**${category.description ? ` - ${category.description}` : ''}`,
-		).join('\n')
-		: '-# No categories configured yet.';
+async function buildPanelContainer(guildId, ticketConfig) {
+	let categoryLines;
+	if (ticketConfig.categories.length) {
+		const lines = [];
+		for (let i = 0; i < ticketConfig.categories.length; i++) {
+			const category = ticketConfig.categories[i];
+			const line = await t(guildId, 'ticket_panel_category_line', {
+				number: i + 1,
+				emoji: category.emoji ? `${category.emoji} ` : '',
+				label: category.label,
+				description: category.description ? ` - ${category.description}` : '',
+			});
+			lines.push(line);
+		}
+		categoryLines = lines.join('\n');
+	}
+	else {
+		categoryLines = await t(guildId, 'ticket_panel_category_none');
+	}
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
@@ -165,10 +180,11 @@ function buildCategoryButtonRow(ticketConfig) {
  */
 async function sendTicketPanel(guild, channel, ticketConfig) {
 	if (!ticketConfig.categories.length) {
-		throw new Error('Add at least one ticket category before sending the panel.');
+		const errCategoryMissing = await t(guild.id, 'ticket_err_category_missing');
+		throw new Error(errCategoryMissing);
 	}
 
-	const container = buildPanelContainer(ticketConfig);
+	const container = await buildPanelContainer(guild.id, ticketConfig);
 	const buttonRow = buildCategoryButtonRow(ticketConfig);
 	if (buttonRow) container.addActionRowComponents(buttonRow);
 
@@ -191,16 +207,18 @@ async function sendTicketPanel(guild, channel, ticketConfig) {
  */
 async function refreshTicketPanel(guild, ticketConfig) {
 	if (!ticketConfig.panelChannelId || !ticketConfig.panelMessageId) {
-		throw new Error('No ticket panel has been sent yet. Send one from `/tickets config` → Panel.');
+		const errPanelNotSent = await t(guild.id, 'ticket_err_panel_not_sent');
+		throw new Error(errPanelNotSent);
 	}
 
 	const channel = await guild.channels.fetch(ticketConfig.panelChannelId);
 	if (!channel?.isTextBased()) {
-		throw new Error('The saved panel channel is missing or is not a text channel.');
+		const errInvalidChannel = await t(guild.id, 'ticket_err_invalid_channel');
+		throw new Error(errInvalidChannel);
 	}
 
 	const message = await channel.messages.fetch(ticketConfig.panelMessageId);
-	const container = buildPanelContainer(ticketConfig);
+	const container = await buildPanelContainer(guild.id, ticketConfig);
 	const buttonRow = buildCategoryButtonRow(ticketConfig);
 	if (buttonRow) container.addActionRowComponents(buttonRow);
 
@@ -235,15 +253,21 @@ async function sendLogNotification(guild, ticketConfig, ticket) {
 	const logChannel = await guild.channels.fetch(ticketConfig.logChannelId);
 	if (!logChannel?.isTextBased()) return;
 
+	const logTitle = await t(guild.id, 'ticket_log_title');
+	const logCategory = await t(guild.id, 'ticket_log_category', { category: ticket.categoryLabel });
+	const logOpener = await t(guild.id, 'ticket_log_opener', { user: `<@${ticket.openerId}>` });
+	const logThread = await t(guild.id, 'ticket_log_thread', { thread: `<#${ticket.threadId}>` });
+	const logJoinBtn = await t(guild.id, 'ticket_log_join_btn');
+
 	const container = new ContainerBuilder()
 		.setAccentColor(accentColor)
 		.addTextDisplayComponents(textDisplay =>
 			textDisplay.setContent(
 				[
-					'## <:userplus:1526207309032984777> New Ticket Opened',
-					`-# **Category:** ${ticket.categoryLabel}`,
-					`-# **Opened by:** <@${ticket.openerId}>`,
-					`-# **Thread:** <#${ticket.threadId}>`,
+					`## ${logTitle}`,
+					`-# **${logCategory}**`,
+					`-# **${logOpener}**`,
+					`-# **${logThread}**`,
 				].join('\n'),
 			),
 		)
@@ -251,7 +275,7 @@ async function sendLogNotification(guild, ticketConfig, ticket) {
 			new ActionRowBuilder().addComponents(
 				new ButtonBuilder()
 					.setCustomId(`${BUTTON_PREFIX}:join:${ticket.threadId}`)
-					.setLabel('Join Ticket')
+					.setLabel(logJoinBtn)
 					.setStyle(ButtonStyle.Primary),
 			),
 		);
@@ -268,16 +292,25 @@ async function sendLogNotification(guild, ticketConfig, ticket) {
  * @param {import('discord.js').User} opener
  */
 async function sendThreadWelcome(thread, ticket, opener) {
-	const claimedByText = ticket.claimedBy ? `<@${ticket.claimedBy}>` : 'No one';
+	const welcomeUnclaimed = await t(thread.guildId, 'ticket_welcome_unclaimed');
+	const claimedByText = ticket.claimedBy ? `<@${ticket.claimedBy}>` : welcomeUnclaimed;
+	const welcomeCloseBtn = await t(thread.guildId, 'ticket_welcome_close_btn');
+
+	const welcomeTitle = await t(thread.guildId, 'ticket_welcome_title', { categoryLabel: ticket.categoryLabel });
+	const welcomeBody = await t(thread.guildId, 'ticket_welcome_body');
+
+	const metaOpener = await t(thread.guildId, 'ticket_welcome_meta_opener', { opener: `<@${ticket.openerId}>` });
+	const metaCategory = await t(thread.guildId, 'ticket_welcome_meta_category', { category: ticket.categoryLabel });
+	const metaId = await t(thread.guildId, 'ticket_welcome_meta_id', { id: ticket.threadId });
+	const metaClaimed = await t(thread.guildId, 'ticket_welcome_meta_claimed', { claimed: claimedByText });
 
 	const container = new ContainerBuilder()
 		.setAccentColor(accentColor)
 		.addTextDisplayComponents(textDisplay =>
 			textDisplay.setContent(
 				[
-					`## <:ticket:1527187232488947813> ${ticket.categoryLabel} Ticket`,
-					'Welcome! Support will be with you shortly.',
-					'-# Use the button below or `/tickets close` when you are done.',
+					`## ${welcomeTitle}`,
+					welcomeBody,
 				].join('\n'),
 			),
 		)
@@ -287,10 +320,10 @@ async function sendThreadWelcome(thread, ticket, opener) {
 		.addTextDisplayComponents(textDisplay =>
 			textDisplay.setContent(
 				[
-					`<:user:1526207642622759134> **Opener:** <@${ticket.openerId}>`,
-					`<:folders:1527035124632522772> **Category:** ${ticket.categoryLabel}`,
-					`<:hash:1527190378737045637> **Ticket ID:** \`${ticket.threadId}\``,
-					`<:shield:1527035003492368558> **Claimed by:** ${claimedByText}`,
+					metaOpener,
+					metaCategory,
+					metaId,
+					metaClaimed,
 				].join('\n'),
 			),
 		)
@@ -298,7 +331,7 @@ async function sendThreadWelcome(thread, ticket, opener) {
 			new ActionRowBuilder().addComponents(
 				new ButtonBuilder()
 					.setCustomId(`${BUTTON_PREFIX}:close:${ticket.threadId}`)
-					.setLabel('Close Ticket')
+					.setLabel(welcomeCloseBtn)
 					.setStyle(ButtonStyle.Danger),
 			),
 		);
@@ -331,71 +364,106 @@ function canManageTicket(member, ticketConfig, ticket) {
 /* ------------------------------------------------------------------------ */
 
 /**
- * @returns {import('discord.js').ActionRowBuilder}
+ * @param {string} guildId
+ * @returns {Promise<import('discord.js').ActionRowBuilder>}
  */
-function buildBackRow() {
+async function buildBackRow(guildId) {
+	const backLabel = await t(guildId, 'ticket_cfg_back_btn');
 	return new ActionRowBuilder().addComponents(
-		new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:home`).setLabel('Back').setEmoji({ name: 'chevronleft', id: '1527044793891295402' }).setStyle(ButtonStyle.Secondary),
+		new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:home`).setLabel(backLabel).setEmoji({ name: 'chevronleft', id: '1527044793891295402' }).setStyle(ButtonStyle.Secondary),
 	);
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildConfigHomeContainer(ticketConfig) {
+async function buildConfigHomeContainer(guildId, ticketConfig) {
+	const notSet = await t(guildId, 'ticket_cfg_not_set');
+	const notSent = await t(guildId, 'ticket_cfg_not_sent');
+	const noneSet = await t(guildId, 'ticket_cfg_none_set');
+	const noneCfg = await t(guildId, 'ticket_cfg_none_cfg');
+
 	const supportRoles = ticketConfig.supportRoleIds.length
 		? ticketConfig.supportRoleIds.map(id => `<@&${id}>`).join(', ')
-		: '_None set_';
+		: noneSet;
 
 	const categoriesSummary = ticketConfig.categories.length
 		? `${ticketConfig.categories.length}/3 configured`
-		: '_None configured_';
+		: noneCfg;
+
+	const ticketCfgTitle = await t(guildId, 'ticket_cfg_title');
+	const configPlaceholder = await t(guildId, 'ticket_cfg_select_placeholder');
+
+	const threadChanText = await t(guildId, 'ticket_cfg_thread_chan', { channel: ticketConfig.threadChannelId ? `<#${ticketConfig.threadChannelId}>` : notSet });
+	const logChanText = await t(guildId, 'ticket_cfg_log_chan', { channel: ticketConfig.logChannelId ? `<#${ticketConfig.logChannelId}>` : notSet });
+	const panelChanText = await t(guildId, 'ticket_cfg_panel_chan', { channel: ticketConfig.panelChannelId ? `<#${ticketConfig.panelChannelId}>` : notSent });
+	const maxOpenText = await t(guildId, 'ticket_cfg_max_open', { max: ticketConfig.maxOpenPerUser });
+	const supportRolesText = await t(guildId, 'ticket_cfg_support_roles', { roles: supportRoles });
+	const categoriesText = await t(guildId, 'ticket_cfg_categories', { summary: categoriesSummary });
+
+	const navChannels = await t(guildId, 'ticket_cfg_nav_channels');
+	const navChannelsDesc = await t(guildId, 'ticket_cfg_nav_channels_desc');
+	const navPanel = await t(guildId, 'ticket_cfg_nav_panel');
+	const navPanelDesc = await t(guildId, 'ticket_cfg_nav_panel_desc');
+	const navCategories = await t(guildId, 'ticket_cfg_nav_categories');
+	const navCategoriesDesc = await t(guildId, 'ticket_cfg_nav_categories_desc');
+	const navRoles = await t(guildId, 'ticket_cfg_nav_roles');
+	const navRolesDesc = await t(guildId, 'ticket_cfg_nav_roles_desc');
+	const navLimit = await t(guildId, 'ticket_cfg_nav_limit');
+	const navLimitDesc = await t(guildId, 'ticket_cfg_nav_limit_desc');
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(t => t.setContent('## <:useredit:1526207844448211014> Ticket Configuration'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${ticketCfgTitle}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(t => t.setContent(
+		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
-				`**Thread channel:** ${ticketConfig.threadChannelId ? `<#${ticketConfig.threadChannelId}>` : '_Not set_'}`,
-				`**Log channel:** ${ticketConfig.logChannelId ? `<#${ticketConfig.logChannelId}>` : '_Not set_'}`,
-				`**Panel channel:** ${ticketConfig.panelChannelId ? `<#${ticketConfig.panelChannelId}>` : '_Not sent_'}`,
-				`**Max open per user:** ${ticketConfig.maxOpenPerUser}`,
-				`**Support roles:** ${supportRoles}`,
-				`**Categories:** ${categoriesSummary}`,
+				threadChanText,
+				logChanText,
+				panelChanText,
+				maxOpenText,
+				supportRolesText,
+				categoriesText,
 			].join('\n'),
 		))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addTextDisplayComponents(t => t.setContent('-# Select a section below to configure it.'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Select a section below to configure it.'))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new StringSelectMenuBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:nav`)
-					.setPlaceholder('Select a section to configure...')
+					.setPlaceholder(configPlaceholder)
 					.addOptions(
-						{ label: 'Channels', description: 'Thread & log channels', value: 'channels', emoji: '<:folder:1527035309727158372>' },
-						{ label: 'Panel', description: 'Panel text, send & refresh', value: 'panel', emoji: '<:monitorcog:1527035219109085234>' },
-						{ label: 'Categories', description: 'Ticket category buttons', value: 'categories', emoji: '<:folders:1527035124632522772>' },
-						{ label: 'Support Roles', description: 'Roles that can manage tickets', value: 'roles', emoji: '<:shield:1527035003492368558>' },
-						{ label: 'Ticket Limit', description: 'Max open tickets per user', value: 'limit', emoji: '<:infinity:1527034881715208273>' },
+						{ label: navChannels, description: navChannelsDesc, value: 'channels', emoji: '<:folder:1527035309727158372>' },
+						{ label: navPanel, description: navPanelDesc, value: 'panel', emoji: '<:monitorcog:1527035219109085234>' },
+						{ label: navCategories, description: navCategoriesDesc, value: 'categories', emoji: '<:folders:1527035124632522772>' },
+						{ label: navRoles, description: navRolesDesc, value: 'roles', emoji: '<:shield:1527035003492368558>' },
+						{ label: navLimit, description: navLimitDesc, value: 'limit', emoji: '<:infinity:1527034881715208273>' },
 					),
 			),
 		);
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildConfigChannelsContainer(ticketConfig) {
+async function buildConfigChannelsContainer(guildId, ticketConfig) {
+	const notSet = await t(guildId, 'ticket_cfg_not_set');
+	const threadChanText = await t(guildId, 'ticket_cfg_thread_chan', { channel: ticketConfig.threadChannelId ? `<#${ticketConfig.threadChannelId}>` : notSet });
+	const logChanText = await t(guildId, 'ticket_cfg_log_chan', { channel: ticketConfig.logChannelId ? `<#${ticketConfig.logChannelId}>` : notSet });
+	const backRow = await buildBackRow(guildId);
+
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(t => t.setContent('## <:folder:1527035309727158372> Channels'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:folder:1527035309727158372> Channels'))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(t => t.setContent(
+		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
-				`**Thread channel:** ${ticketConfig.threadChannelId ? `<#${ticketConfig.threadChannelId}>` : '_Not set_'}`,
+				threadChanText,
 				'-# Where private ticket threads are created.',
 			].join('\n'),
 		))
@@ -407,9 +475,9 @@ function buildConfigChannelsContainer(ticketConfig) {
 					.addChannelTypes(ChannelType.GuildText),
 			),
 		)
-		.addTextDisplayComponents(t => t.setContent(
+		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
-				`**Log channel:** ${ticketConfig.logChannelId ? `<#${ticketConfig.logChannelId}>` : '_Not set_'}`,
+				logChanText,
 				'-# Where new-ticket alerts are posted for staff.',
 			].join('\n'),
 		))
@@ -422,23 +490,28 @@ function buildConfigChannelsContainer(ticketConfig) {
 			),
 		)
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addActionRowComponents(buildBackRow());
+		.addActionRowComponents(backRow);
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildConfigPanelContainer(ticketConfig) {
+async function buildConfigPanelContainer(guildId, ticketConfig) {
+	const notSent = await t(guildId, 'ticket_cfg_not_sent');
+	const panelChanText = await t(guildId, 'ticket_cfg_panel_chan', { channel: ticketConfig.panelChannelId ? `<#${ticketConfig.panelChannelId}>` : notSent });
+	const backRow = await buildBackRow(guildId);
+
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(t => t.setContent('## <:monitorcog:1527035219109085234> Panel'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:monitorcog:1527035219109085234> Panel'))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(t => t.setContent(
+		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
 				`**Title:** ${ticketConfig.panelTitle}`,
 				`**Description:** ${ticketConfig.panelDescription}`,
-				`**Panel channel:** ${ticketConfig.panelChannelId ? `<#${ticketConfig.panelChannelId}>` : '_Not sent_'}`,
+				panelChanText,
 			].join('\n'),
 		))
 		.addActionRowComponents(
@@ -447,7 +520,7 @@ function buildConfigPanelContainer(ticketConfig) {
 				new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:panel:refresh`).setLabel('Refresh Live Panel').setStyle(ButtonStyle.Secondary),
 			),
 		)
-		.addTextDisplayComponents(t => t.setContent('-# Select a channel below to send (or resend) the panel there.'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Select a channel below to send (or resend) the panel there.'))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new ChannelSelectMenuBuilder()
@@ -457,24 +530,26 @@ function buildConfigPanelContainer(ticketConfig) {
 			),
 		)
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addActionRowComponents(buildBackRow());
+		.addActionRowComponents(backRow);
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildConfigCategoriesContainer(ticketConfig) {
+async function buildConfigCategoriesContainer(guildId, ticketConfig) {
+	const backRow = await buildBackRow(guildId);
 	const container = new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(t => t.setContent('## <:folders:1527035124632522772> Categories'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:folders:1527035124632522772> Categories'))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(t => t.setContent('-# Up to 3 categories appear as buttons on the ticket panel.'));
+		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Up to 3 categories appear as buttons on the ticket panel.'));
 
 	for (let slot = 1; slot <= 3; slot++) {
 		const category = ticketConfig.categories[slot - 1];
 
-		container.addTextDisplayComponents(t => t.setContent(
+		container.addTextDisplayComponents(tMsg => tMsg.setContent(
 			category
 				? `**Slot ${slot}:** ${category.emoji ? `${category.emoji} ` : ''}${category.label} \`(${category.id})\`${category.description ? `\n-# ${category.description}` : ''}`
 				: `**Slot ${slot}:** _Empty_`,
@@ -501,16 +576,17 @@ function buildConfigCategoriesContainer(ticketConfig) {
 
 	container
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addActionRowComponents(buildBackRow());
+		.addActionRowComponents(backRow);
 
 	return container;
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildConfigRolesContainer(ticketConfig) {
+async function buildConfigRolesContainer(guildId, ticketConfig) {
 	const select = new RoleSelectMenuBuilder()
 		.setCustomId(`${CONFIG_PREFIX}:roles:set`)
 		.setPlaceholder('Select support roles...')
@@ -521,26 +597,32 @@ function buildConfigRolesContainer(ticketConfig) {
 		select.setDefaultRoles(ticketConfig.supportRoleIds.slice(0, 25));
 	}
 
+	const noneSet = await t(guildId, 'ticket_cfg_none_set');
+	const resolvedRoles = ticketConfig.supportRoleIds.length ? ticketConfig.supportRoleIds.map(id => `<@&${id}>`).join(', ') : noneSet;
+	const supportRolesText = await t(guildId, 'ticket_cfg_support_roles', { roles: resolvedRoles });
+	const backRow = await buildBackRow(guildId);
+
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(t => t.setContent('## <:shield:1527035003492368558> Support Roles'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:shield:1527035003492368558> Support Roles'))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(t => t.setContent(
+		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
-				ticketConfig.supportRoleIds.length ? ticketConfig.supportRoleIds.map(id => `<@&${id}>`).join(', ') : '_None set_',
+				supportRolesText,
 				'-# Selected roles (plus Manage Server/Channels) can manage tickets. Selecting replaces the full list.',
 			].join('\n'),
 		))
 		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addActionRowComponents(buildBackRow());
+		.addActionRowComponents(backRow);
 }
 
 /**
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function buildConfigLimitContainer(ticketConfig) {
+async function buildConfigLimitContainer(guildId, ticketConfig) {
 	const select = new StringSelectMenuBuilder()
 		.setCustomId(`${CONFIG_PREFIX}:limit:set`)
 		.setPlaceholder(`Current: ${ticketConfig.maxOpenPerUser}`)
@@ -550,29 +632,32 @@ function buildConfigLimitContainer(ticketConfig) {
 			default: n === ticketConfig.maxOpenPerUser,
 		})));
 
+	const backRow = await buildBackRow(guildId);
+
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(t => t.setContent('## <:infinity:1527034881715208273> Ticket Limit'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:infinity:1527034881715208273> Ticket Limit'))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(t => t.setContent('-# Maximum number of open tickets a single user may have at once.'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Maximum number of open tickets a single user may have at once.'))
 		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addActionRowComponents(buildBackRow());
+		.addActionRowComponents(backRow);
 }
 
 /**
  * @param {string} page
+ * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ContainerBuilder}
+ * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
-function renderConfigPage(page, ticketConfig) {
+async function renderConfigPage(page, guildId, ticketConfig) {
 	switch (page) {
-	case 'channels': return buildConfigChannelsContainer(ticketConfig);
-	case 'panel': return buildConfigPanelContainer(ticketConfig);
-	case 'categories': return buildConfigCategoriesContainer(ticketConfig);
-	case 'roles': return buildConfigRolesContainer(ticketConfig);
-	case 'limit': return buildConfigLimitContainer(ticketConfig);
-	default: return buildConfigHomeContainer(ticketConfig);
+	case 'channels': return buildConfigChannelsContainer(guildId, ticketConfig);
+	case 'panel': return buildConfigPanelContainer(guildId, ticketConfig);
+	case 'categories': return buildConfigCategoriesContainer(guildId, ticketConfig);
+	case 'roles': return buildConfigRolesContainer(guildId, ticketConfig);
+	case 'limit': return buildConfigLimitContainer(guildId, ticketConfig);
+	default: return buildConfigHomeContainer(guildId, ticketConfig);
 	}
 }
 
@@ -626,7 +711,8 @@ async function handlePanelTextModal(interaction, ticketConfig) {
 		Object.assign(ticketConfig, updates);
 	}
 
-	await submitted.update({ components: [buildConfigPanelContainer(ticketConfig)] });
+	const panelContainer = await buildConfigPanelContainer(interaction.guildId, ticketConfig);
+	await submitted.update({ components: [panelContainer] });
 }
 
 /**
@@ -700,7 +786,8 @@ async function handleCategoryModal(interaction, ticketConfig, slot) {
 	ticketConfig.categories = categories.slice(0, 3);
 	await ticketConfig.save();
 
-	await submitted.update({ components: [buildConfigCategoriesContainer(ticketConfig)] });
+	const categoriesContainer = await buildConfigCategoriesContainer(interaction.guildId, ticketConfig);
+	await submitted.update({ components: [categoriesContainer] });
 }
 
 /**
@@ -710,12 +797,14 @@ async function handleCategoryModal(interaction, ticketConfig, slot) {
  */
 async function handleConfigComponent(interaction, ticketConfig) {
 	if (interaction.customId === `${CONFIG_PREFIX}:nav`) {
-		await interaction.update({ components: [renderConfigPage(interaction.values[0], ticketConfig)] });
+		const pageContainer = await renderConfigPage(interaction.values[0], interaction.guildId, ticketConfig);
+		await interaction.update({ components: [pageContainer] });
 		return;
 	}
 
 	if (interaction.customId === `${CONFIG_PREFIX}:home`) {
-		await interaction.update({ components: [buildConfigHomeContainer(ticketConfig)] });
+		const homeContainer = await buildConfigHomeContainer(interaction.guildId, ticketConfig);
+		await interaction.update({ components: [homeContainer] });
 		return;
 	}
 
@@ -732,7 +821,8 @@ async function handleConfigComponent(interaction, ticketConfig) {
 			await updateTicketConfig(interaction.guildId, { logChannelId: channelId });
 			ticketConfig.logChannelId = channelId;
 		}
-		await interaction.update({ components: [buildConfigChannelsContainer(ticketConfig)] });
+		const channelsContainer = await buildConfigChannelsContainer(interaction.guildId, ticketConfig);
+		await interaction.update({ components: [channelsContainer] });
 		return;
 	}
 
@@ -746,7 +836,8 @@ async function handleConfigComponent(interaction, ticketConfig) {
 			await interaction.deferUpdate();
 			try {
 				await refreshTicketPanel(interaction.guild, ticketConfig);
-				await interaction.editReply({ components: [buildConfigPanelContainer(ticketConfig)] });
+				const panelContainer = await buildConfigPanelContainer(interaction.guildId, ticketConfig);
+				await interaction.editReply({ components: [panelContainer] });
 				await interaction.followUp({
 					components: [buildTextContainer('<:check:1526217602010185959> Panel refreshed.')],
 					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
@@ -769,7 +860,8 @@ async function handleConfigComponent(interaction, ticketConfig) {
 				await sendTicketPanel(interaction.guild, channel, ticketConfig);
 				const refreshed = await getTicketConfig(interaction.guildId);
 				Object.assign(ticketConfig, refreshed.toObject ? refreshed.toObject() : refreshed);
-				await interaction.editReply({ components: [buildConfigPanelContainer(ticketConfig)] });
+				const panelContainer = await buildConfigPanelContainer(interaction.guildId, ticketConfig);
+				await interaction.editReply({ components: [panelContainer] });
 				await interaction.followUp({
 					components: [buildTextContainer(`<:check:1526217602010185959> Panel sent to <#${channelId}>.`)],
 					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
@@ -801,7 +893,8 @@ async function handleConfigComponent(interaction, ticketConfig) {
 			}
 			ticketConfig.categories.splice(slot - 1, 1);
 			await ticketConfig.save();
-			await interaction.update({ components: [buildConfigCategoriesContainer(ticketConfig)] });
+			const categoriesContainer = await buildConfigCategoriesContainer(interaction.guildId, ticketConfig);
+			await interaction.update({ components: [categoriesContainer] });
 			return;
 		}
 		break;
@@ -811,7 +904,8 @@ async function handleConfigComponent(interaction, ticketConfig) {
 		if (action === 'set') {
 			ticketConfig.supportRoleIds = interaction.values;
 			await ticketConfig.save();
-			await interaction.update({ components: [buildConfigRolesContainer(ticketConfig)] });
+			const rolesContainer = await buildConfigRolesContainer(interaction.guildId, ticketConfig);
+			await interaction.update({ components: [rolesContainer] });
 			return;
 		}
 		break;
@@ -822,7 +916,8 @@ async function handleConfigComponent(interaction, ticketConfig) {
 			const amount = Number(interaction.values[0]);
 			await updateTicketConfig(interaction.guildId, { maxOpenPerUser: amount });
 			ticketConfig.maxOpenPerUser = amount;
-			await interaction.update({ components: [buildConfigLimitContainer(ticketConfig)] });
+			const limitContainer = await buildConfigLimitContainer(interaction.guildId, ticketConfig);
+			await interaction.update({ components: [limitContainer] });
 			return;
 		}
 		break;
@@ -839,9 +934,10 @@ async function handleConfigComponent(interaction, ticketConfig) {
  */
 async function startConfigSession(interaction) {
 	let ticketConfig = await getTicketConfig(interaction.guildId);
+	const configHome = await buildConfigHomeContainer(interaction.guildId, ticketConfig);
 
 	await interaction.reply({
-		components: [buildConfigHomeContainer(ticketConfig)],
+		components: [configHome],
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 	});
 
@@ -860,7 +956,8 @@ async function startConfigSession(interaction) {
 		}
 		catch (error) {
 			logger.error('Failed to handle ticket config interaction:', error);
-			const errorContainer = buildTextContainer('<:x_:1526217756926808174> **Error:** Something went wrong updating that setting.', 0xFF0000);
+			const errSomethingWrong = await t(interaction.guildId, 'ticket_err_something_wrong');
+			const errorContainer = buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errSomethingWrong}`, 0xFF0000);
 			if (i.deferred || i.replied) {
 				await i.followUp({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral }).catch(() => null);
 			}
@@ -871,8 +968,9 @@ async function startConfigSession(interaction) {
 	});
 
 	collector.on('end', async () => {
+		const errExpired = await t(interaction.guildId, 'ticket_err_session_expired');
 		await interaction.editReply({
-			components: [buildTextContainer('-# This configuration session has expired. Run `/tickets config` again.')],
+			components: [buildTextContainer(`-# ${errExpired}`)],
 		}).catch(() => null);
 	});
 }
@@ -883,18 +981,21 @@ async function startConfigSession(interaction) {
  */
 async function handleOpenTicket(interaction, categoryId) {
 	if (!interaction.inGuild()) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** Tickets can only be opened inside a server.', 0xFF0000));
+		const errNotGuild = await t(interaction.guildId, 'ticket_err_not_guild');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNotGuild}`, 0xFF0000));
 	}
 
 	const ticketConfig = await getTicketConfig(interaction.guildId);
 	const category = ticketConfig.categories.find(entry => entry.id === categoryId);
 
 	if (!category) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** That ticket category no longer exists. Ask an admin to refresh the panel.', 0xFF0000));
+		const errCategoryNotFound = await t(interaction.guildId, 'ticket_err_category_not_found');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errCategoryNotFound}`, 0xFF0000));
 	}
 
 	if (!ticketConfig.threadChannelId) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** Ticket system is not fully configured. An admin must set a thread channel in `/tickets config`.', 0xFF0000));
+		const errNotConfigured = await t(interaction.guildId, 'ticket_err_not_configured');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNotConfigured}`, 0xFF0000));
 	}
 
 	const openCount = await Ticket.countDocuments({
@@ -904,12 +1005,14 @@ async function handleOpenTicket(interaction, categoryId) {
 	});
 
 	if (openCount >= ticketConfig.maxOpenPerUser) {
-		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** You already have ${openCount} open ticket${openCount === 1 ? '' : 's'}. Close one before opening another.`, 0xFF0000));
+		const errMaxOpen = await t(interaction.guildId, 'ticket_err_max_open', { count: openCount });
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errMaxOpen}`, 0xFF0000));
 	}
 
 	const threadChannel = await interaction.guild.channels.fetch(ticketConfig.threadChannelId);
 	if (!threadChannel?.isTextBased() || threadChannel.isThread()) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** The configured ticket channel is invalid.', 0xFF0000));
+		const errInvalidThreadChan = await t(interaction.guildId, 'ticket_err_invalid_thread_chan');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errInvalidThreadChan}`, 0xFF0000));
 	}
 
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -935,15 +1038,17 @@ async function handleOpenTicket(interaction, categoryId) {
 		await sendThreadWelcome(thread, ticket, interaction.user);
 		await sendLogNotification(interaction.guild, ticketConfig, ticket);
 
+		const msgCreated = await t(interaction.guildId, 'ticket_msg_created', { thread: thread.toString() });
 		await interaction.editReply({
-			components: [buildTextContainer(`<:check:1526217602010185959> **Ticket created!** Continue in ${thread}.`)],
+			components: [buildTextContainer(`<:check:1526217602010185959> ${msgCreated}`)],
 			flags: MessageFlags.IsComponentsV2,
 		});
 	}
 	catch (error) {
 		logger.error(`Failed to open ticket for ${interaction.user.tag}:`, error);
+		const errCreateFailed = await t(interaction.guildId, 'ticket_err_create_failed');
 		await interaction.editReply({
-			components: [buildTextContainer('<:x_:1526217756926808174> **Error:** Failed to create the ticket thread. Check bot permissions.', 0xFF0000)],
+			components: [buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errCreateFailed}`, 0xFF0000)],
 			flags: MessageFlags.IsComponentsV2,
 		});
 	}
@@ -955,17 +1060,20 @@ async function handleOpenTicket(interaction, categoryId) {
  */
 async function handleJoinTicket(interaction, threadId) {
 	if (!interaction.inGuild()) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This button only works inside a server.', 0xFF0000));
+		const errNotGuild = await t(interaction.guildId, 'ticket_err_not_guild');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNotGuild}`, 0xFF0000));
 	}
 
 	const ticket = await Ticket.findOne({ guildId: interaction.guildId, threadId, status: 'open' });
 	if (!ticket) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This ticket is closed or no longer exists.', 0xFF0000));
+		const errJoinClosed = await t(interaction.guildId, 'ticket_err_join_closed');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errJoinClosed}`, 0xFF0000));
 	}
 
 	const thread = await interaction.guild.channels.fetch(threadId);
 	if (!thread?.isThread()) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** The ticket thread could not be found.', 0xFF0000));
+		const errThreadNotFound = await t(interaction.guildId, 'ticket_err_thread_not_found');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errThreadNotFound}`, 0xFF0000));
 	}
 
 	try {
@@ -975,11 +1083,13 @@ async function handleJoinTicket(interaction, threadId) {
 			await ticket.save();
 		}
 
-		await replyContainer(interaction, buildTextContainer(`<:check:1526217602010185959> **Joined ticket!** Continue in ${thread}.`));
+		const msgJoined = await t(interaction.guildId, 'ticket_msg_joined', { thread: thread.toString() });
+		await replyContainer(interaction, buildTextContainer(`<:check:1526217602010185959> ${msgJoined}`));
 	}
 	catch (error) {
 		logger.error(`Failed to join ticket ${threadId}:`, error);
-		await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** Could not add you to the ticket thread.', 0xFF0000));
+		const errJoinFailed = await t(interaction.guildId, 'ticket_err_join_failed');
+		await replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errJoinFailed}`, 0xFF0000));
 	}
 }
 
@@ -989,34 +1099,42 @@ async function handleJoinTicket(interaction, threadId) {
  */
 async function handleCloseTicketButton(interaction, threadId) {
 	if (!interaction.inGuild()) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This button only works inside a server.', 0xFF0000));
+		const errNotGuild = await t(interaction.guildId, 'ticket_err_not_guild');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNotGuild}`, 0xFF0000));
 	}
 
 	const ticket = await Ticket.findOne({ guildId: interaction.guildId, threadId });
 	if (!ticket || ticket.status === 'closed') {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This ticket is already closed.', 0xFF0000));
+		const errAlreadyClosed = await t(interaction.guildId, 'ticket_err_already_closed');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errAlreadyClosed}`, 0xFF0000));
 	}
 
 	const ticketConfig = await getTicketConfig(interaction.guildId);
 	const member = interaction.member;
 	if (!canManageTicket(member, ticketConfig, ticket)) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to close this ticket.', 0xFF0000));
+		const errNoPermission = await t(interaction.guildId, 'ticket_err_no_permission');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNoPermission}`, 0xFF0000));
 	}
+
+	const closeConfirmTitle = await t(interaction.guildId, 'ticket_close_confirm_title');
+	const closeConfirmDesc = await t(interaction.guildId, 'ticket_close_confirm_desc');
+	const confirmBtnLabel = await t(interaction.guildId, 'ticket_close_confirm_btn');
+	const cancelBtnLabel = await t(interaction.guildId, 'ticket_close_cancel_btn');
 
 	const container = new ContainerBuilder()
 		.setAccentColor(0xFF0000)
 		.addTextDisplayComponents(textDisplay =>
-			textDisplay.setContent('## Close this ticket?\nThis will archive the thread for everyone.'),
+			textDisplay.setContent(`## ${closeConfirmTitle}\n${closeConfirmDesc}`),
 		)
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new ButtonBuilder()
 					.setCustomId(`${BUTTON_PREFIX}:confirm_close:${threadId}`)
-					.setLabel('Confirm Close')
+					.setLabel(confirmBtnLabel)
 					.setStyle(ButtonStyle.Danger),
 				new ButtonBuilder()
 					.setCustomId(`${BUTTON_PREFIX}:cancel_close:${threadId}`)
-					.setLabel('Cancel')
+					.setLabel(cancelBtnLabel)
 					.setStyle(ButtonStyle.Secondary),
 			),
 		);
@@ -1044,18 +1162,21 @@ async function handleConfirmClose(interaction, threadId) {
 async function closeTicket(interaction, threadId, closedById, reason = null) {
 	const ticket = await Ticket.findOne({ guildId: interaction.guildId, threadId });
 	if (!ticket || ticket.status === 'closed') {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This ticket is already closed.', 0xFF0000));
+		const errAlreadyClosed = await t(interaction.guildId, 'ticket_err_already_closed');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errAlreadyClosed}`, 0xFF0000));
 	}
 
 	const ticketConfig = await getTicketConfig(interaction.guildId);
 	const member = interaction.member;
 	if (!canManageTicket(member, ticketConfig, ticket)) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to close this ticket.', 0xFF0000));
+		const errNoPermission = await t(interaction.guildId, 'ticket_err_no_permission');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNoPermission}`, 0xFF0000));
 	}
 
 	const thread = await interaction.guild.channels.fetch(threadId);
 	if (!thread?.isThread()) {
-		return replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** The ticket thread could not be found.', 0xFF0000));
+		const errThreadNotFound = await t(interaction.guildId, 'ticket_err_thread_not_found');
+		return replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errThreadNotFound}`, 0xFF0000));
 	}
 
 	ticket.status = 'closed';
@@ -1063,17 +1184,24 @@ async function closeTicket(interaction, threadId, closedById, reason = null) {
 	ticket.closedBy = closedById;
 	await ticket.save();
 
+	const closeNoticeTitle = await t(interaction.guildId, 'ticket_close_notice_title');
+	const closeNoticeBody = await t(interaction.guildId, 'ticket_close_notice_body', { user: `<@${closedById}>` });
+	const closeNoticeFooter = await t(interaction.guildId, 'ticket_close_notice_footer');
+	const noticeLines = [
+		`## ${closeNoticeTitle}`,
+		closeNoticeBody,
+	];
+
+	if (reason) {
+		const closeNoticeReason = await t(interaction.guildId, 'ticket_close_notice_reason', { reason });
+		noticeLines.push(closeNoticeReason);
+	}
+	noticeLines.push(closeNoticeFooter);
+
 	const closeNotice = new ContainerBuilder()
 		.setAccentColor(0xFF0000)
 		.addTextDisplayComponents(textDisplay =>
-			textDisplay.setContent(
-				[
-					'## <:x_:1526217756926808174> Ticket Closed',
-					`Closed by <@${closedById}>`,
-					reason ? `> **Reason:** ${reason}` : '',
-					'-# This thread has been archived.',
-				].filter(Boolean).join('\n'),
-			),
+			textDisplay.setContent(noticeLines.join('\n')),
 		);
 
 	try {
@@ -1086,14 +1214,11 @@ async function closeTicket(interaction, threadId, closedById, reason = null) {
 		logger.error(`Failed to send close notice in ticket thread ${threadId}:`, error);
 	}
 
-	// Acknowledge the interaction BEFORE archiving — if the interaction lives inside
-	// this thread (e.g. a /tickets close run from within it), Discord can't deliver
-	// the response once the thread is archived, which previously caused a "Thread is
-	// archived" error on reply.
 	if (interaction.isRepliable()) {
 		const method = interaction.replied || interaction.deferred ? 'followUp' : 'reply';
+		const closeSuccessMsg = await t(interaction.guildId, 'ticket_close_success');
 		await interaction[method]({
-			components: [buildTextContainer('<:check:1526217602010185959> **Ticket closed** and thread archived.')],
+			components: [buildTextContainer(`<:check:1526217602010185959> ${closeSuccessMsg}`)],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 		}).catch(error => logger.error(`Failed to confirm ticket close for ${threadId}:`, error));
 	}
@@ -1128,9 +1253,11 @@ async function handleTicketButton(interaction) {
 	case 'confirm_close':
 		await handleConfirmClose(interaction, payload);
 		break;
-	case 'cancel_close':
-		await replyContainer(interaction, buildTextContainer('Ticket close cancelled.'));
+	case 'cancel_close': {
+		const cancelledMsg = await t(interaction.guildId, 'ticket_close_cancelled');
+		await replyContainer(interaction, buildTextContainer(cancelledMsg));
 		break;
+	}
 	default:
 		return false;
 	}
@@ -1144,7 +1271,8 @@ async function handleTicketButton(interaction) {
  */
 async function getActiveTicketFromInteraction(interaction) {
 	if (!interaction.channel?.isThread()) {
-		await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** Run this command inside a ticket thread.', 0xFF0000));
+		const errNotThread = await t(interaction.guildId, 'ticket_err_command_not_thread');
+		await replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNotThread}`, 0xFF0000));
 		return null;
 	}
 
@@ -1154,7 +1282,8 @@ async function getActiveTicketFromInteraction(interaction) {
 	});
 
 	if (!ticket) {
-		await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This thread is not a tracked ticket.', 0xFF0000));
+		const errNotTracked = await t(interaction.guildId, 'ticket_err_not_tracked');
+		await replyContainer(interaction, buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errNotTracked}`, 0xFF0000));
 		return null;
 	}
 

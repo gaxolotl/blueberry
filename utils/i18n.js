@@ -1,4 +1,3 @@
-const { getGuildConfig } = require('./guildConfig');
 const logger = require('./logger');
 
 let messagesModule = null;
@@ -30,13 +29,20 @@ async function getMessages() {
  */
 async function t(guildId, key, params = {}) {
 	try {
+		const { getGuildConfig } = require('./guildConfig');
 		const guildConfig = await getGuildConfig(guildId);
 		const locale = guildConfig.language || 'en';
 		const m = await getMessages();
 
-		if (typeof m[key] === 'function') {
-			// Passing { locale } explicitly prevents concurrency race conditions across guilds
+		// Check if the message key exists as a function within the module
+		if (m[key] && typeof m[key] === 'function') {
 			return m[key](params, { locale });
+		}
+
+		// Fallback: Sometimes Paraglide bundles messages under a default export or different structure
+		// If your structure is { en: { key: fn }, bg: { key: fn } }, access it by locale first:
+		if (m[locale] && typeof m[locale][key] === 'function') {
+			return m[locale][key](params);
 		}
 
 		logger.warn(`Missing translation key: "${key}" for locale "${locale}"`);
