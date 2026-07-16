@@ -10,7 +10,7 @@
 
 # Support the project
 
-If you would like to support the work of the contributors, consider giving the repo a ⭐
+If you would like to support the work of the contributors, consider giving the repo a ⭐\
 It helps more people find the project.
 
 ---
@@ -32,7 +32,7 @@ git clone https://github.com/NotValra/RoValra.git
 pnpm install
 ```
 
-3. Copy `config.example.js` and `.env.example` and rename to `config.js` and `.env`
+3. Copy `config.example.js` and `.env.example` and rename to `config.js` and `.env`\
 Fill `.env` with the required vars and adjust `config.js` to your preferences.
 
 4. Deploy commands to single guild or globally
