@@ -277,3 +277,70 @@ When suggesting terminal commands to run, test, or deploy, **always use pnpm**:
 * **Add dev dependency:** `pnpm add -D <package_name>`
 * **Run bot locally:** `pnpm run start`
 * **Run migrations/deployments:** `pnpm run deploy` or `pnpm run deploy-guild` (target scripts inside the `/cmd` directory)
+
+---
+
+## 8. Localization & Internationalization (i18n)
+
+Blueberry is a multi-lingual bot that dynamically localizes command descriptions, options, success panels, and error messages based on the guild's language preference. **No customer-facing strings should ever be hardcoded in the codebase.**
+
+### Directory Layout & Tooling
+
+```text
+blueberry/
+├── messages/          # Inlang message format catalogs
+│   ├── en.json        # English source catalog (base)
+│   └── es.json        # Spanish translation catalog (etc.)
+└── utils/
+    └── i18n.js        # Localization module containing t() and tError()
+```
+
+## Example
+
+```javascript
+const { SlashCommandBuilder, ContainerBuilder, MessageFlags } = require('discord.js');
+const { t, tError } = require('../../utils/i18n');
+const config = require('../../config.js');
+
+const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('status')
+        .setDescription('Check system status'), // NEVER modify ANYTHING about the slash command builder!
+
+    async execute(interaction) {
+        const guildId = interaction.guildId;
+
+        try {
+            // Fetch translation keys with optional variables
+            const statusMessage = await t(guildId, 'status_online_msg', { 
+                latency: interaction.client.ws.ping.toString() 
+            });
+
+            const container = new ContainerBuilder()
+                .setAccentColor(accentColor)
+                .addTextDisplayComponents(textDisplay =>
+                    textDisplay.setContent(statusMessage)
+                );
+
+            await interaction.reply({
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+            });
+        } catch (error) {
+            // Localized programmatic error handling
+            const errorMsg = await tError(guildId, 'error_status_failed');
+            
+            const errorContainer = new ContainerBuilder()
+                .setAccentColor(0xFF0000)
+                .addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
+
+            await interaction.reply({
+                components: [errorContainer],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+    },
+};
+```

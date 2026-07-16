@@ -13,6 +13,7 @@ const { Resvg } = require('@resvg/resvg-js');
 const sizeOf = require('image-size').imageSize || require('image-size');
 const logger = require('../../utils/logger');
 const config = require('../../config.js');
+const { t, tError } = require('../../utils/i18n');
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -78,20 +79,16 @@ function buildSvg({
 	const safeWidth = Number.isFinite(width) && width > 0 ? width : 1200;
 	const safeHeight = Number.isFinite(height) && height > 0 ? height : 800;
 
-	// Determine coordinate overrides and alignments based on boolean flags
 	const finalX = centerHorizontal ? (safeWidth / 2) : x;
 	const finalY = centerVertical ? (safeHeight / 2) : y;
 
 	const textAnchor = centerHorizontal ? 'text-anchor="middle"' : '';
 	const dominantBaseline = centerVertical ? 'dominant-baseline="central"' : 'dominant-baseline="hanging"';
 
-	// Use inline CSS styles for text decoration. This ensures the underline
-	// is properly bound to the text width and doesn't span the whole image.
 	const textStyles = [];
 	if (italic) textStyles.push('font-style: italic;');
 	if (bold) textStyles.push('font-weight: bold;');
 
-	// Non-standard attribute for Resvg compatibility for complex paint orders
 	const strokeAttrs = [];
 	let useStroke = false;
 	const safeStrokeSize = Number.isFinite(strokeSize) && strokeSize > 0 ? strokeSize : 2;
@@ -106,13 +103,8 @@ function buildSvg({
 
 	if (underlined) {
 		textStyles.push('text-decoration: underline;');
-
-		// Match request: adjust to stroke size.
-		// We use CSS property text-decoration-thickness.
 		const thickness = useStroke ? safeStrokeSize : Math.max(1, fontSize / 16);
 		textStyles.push(`text-decoration-thickness: ${thickness}px;`);
-
-		// We keep the underline color matching the text fill color by default.
 		textStyles.push(`text-decoration-color: ${safeColor};`);
 	}
 
@@ -270,6 +262,7 @@ module.exports = {
 
 	async execute(interaction) {
 		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+		const guildId = interaction.guildId;
 		let tempDir = null;
 
 		try {
@@ -292,20 +285,20 @@ module.exports = {
 			const centerVertical = interaction.options.getBoolean('center-vertical') ?? false;
 
 			if (!imageAttachment?.url) {
-				throw new Error('An image attachment is required.');
+				throw new Error(await t(guildId, 'error_img_required'));
 			}
 
 			if (!text) {
-				throw new Error('Text is required.');
+				throw new Error(await t(guildId, 'error_text_required'));
 			}
 
 			if (fontAttachment && !fontAttachment.name?.toLowerCase().endsWith('.ttf')) {
-				throw new Error('The provided font file must be a .ttf file.');
+				throw new Error(await t(guildId, 'error_invalid_font'));
 			}
 
 			const inputResponse = await fetch(imageAttachment.url);
 			if (!inputResponse.ok) {
-				throw new Error(`Failed to download image: ${inputResponse.status}`);
+				throw new Error(await t(guildId, 'error_download_img_failed', { status: inputResponse.status }));
 			}
 			const inputBuffer = Buffer.from(await inputResponse.arrayBuffer());
 			const imageMimeType = imageAttachment.contentType || inferMimeType(imageAttachment.name || imageAttachment.url, 'image/png');
@@ -314,7 +307,7 @@ module.exports = {
 			if (fontAttachment?.url) {
 				const fontResponse = await fetch(fontAttachment.url);
 				if (!fontResponse.ok) {
-					throw new Error(`Failed to download font: ${fontResponse.status}`);
+					throw new Error(await t(guildId, 'error_download_font_failed', { status: fontResponse.status }));
 				}
 				const fontBuffer = Buffer.from(await fontResponse.arrayBuffer());
 				tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'blueberry-font-'));
@@ -341,41 +334,49 @@ module.exports = {
 				centerVertical,
 			});
 
+			// 1. Resolve text formatting styles dynamically
 			const stylingDetails = [];
-			if (bold) stylingDetails.push('**Bold**');
-			if (italic) stylingDetails.push('*Italic*');
-			if (underlined) stylingDetails.push('__Underlined__');
-			const stylingString = stylingDetails.length > 0 ? stylingDetails.join(' • ') : 'Normal';
+			if (bold) stylingDetails.push(await t(guildId, 'term_bold'));
+			if (italic) stylingDetails.push(await t(guildId, 'term_italic'));
+			if (underlined) stylingDetails.push(await t(guildId, 'term_underlined'));
+			const stylingString = stylingDetails.length > 0 ? stylingDetails.join(' • ') : await t(guildId, 'term_normal');
 
-			const strokeDetails = stroke ? `Enabled (*${normalizeHex(strokeColor)}* • ${strokeSize}*px*)` : 'Disabled';
+			// 2. Resolve Stroke details dynamic text
+			const strokeDetails = stroke
+				? await t(guildId, 'term_enabled', { color: normalizeHex(strokeColor), size: strokeSize })
+				: await t(guildId, 'term_disabled');
 
-			// Clean dynamic position reading for details panel
-			const hPositionDisplay = centerHorizontal ? 'Centered' : `${horizontal}px`;
-			const vPositionDisplay = centerVertical ? 'Centered' : `${vertical}px`;
+			// 3. Resolve positioning strings
+			const hPositionDisplay = centerHorizontal ? await t(guildId, 'term_centered') : `${horizontal}px`;
+			const vPositionDisplay = centerVertical ? await t(guildId, 'term_centered') : `${vertical}px`;
 
+			// 4. Build output details panel using localization strings
 			const generatedAttachment = new AttachmentBuilder(outputBuffer, { name: 'overlay.png' });
 			const container = new ContainerBuilder()
 				.setAccentColor(accentColor)
 				.setSpoiler(false)
 				.addTextDisplayComponents(textDisplay =>
 					textDisplay.setContent(
-						['# <:fileimage:1526977103386509312> **Image overlay complete**', '-# Your image has been processed and is ready for download.'].join('\n'),
+						[
+							t(guildId, 'imagetext_success_title'),
+							t(guildId, 'imagetext_success_subtitle'),
+						].join('\n'),
 					),
 				)
 				.addSeparatorComponents(separator =>
 					separator.setDivider(true).setSpacing(SeparatorSpacingSize.Small),
 				)
-				.addTextDisplayComponents(textDisplay =>
+				.addTextDisplayComponents(async textDisplay =>
 					textDisplay.setContent(
 						[
-							'### Details',
-							`<:pencil:1526982031144128573> **Text:** \`${escapeXml(text)}\``,
-							`<:move:1526983130827722762> **Position:** H: ${hPositionDisplay} • V: ${vPositionDisplay}`,
-							`<:scaling:1526982526961324073> **Size:** ${fontSize}*px*`,
-							`<:palette:1526982654011117719> **Color:** *${normalizeHex(color)}*`,
-							`<:filetype:1526982779701825626> **Font:** ${fontAttachment ? `\`${fontAttachment.name}\`` : 'Default'}`,
-							`<:strokeoutline:1526986132817182800> **Stroke:** ${strokeDetails}`,
-							`<:pentool:1526986608572764452> **Style:** ${stylingString}`,
+							await t(guildId, 'imagetext_details_header'),
+							await t(guildId, 'imagetext_details_text', { text: escapeXml(text) }),
+							await t(guildId, 'imagetext_details_pos', { hPos: hPositionDisplay, vPos: vPositionDisplay }),
+							await t(guildId, 'imagetext_details_size', { size: fontSize }),
+							await t(guildId, 'imagetext_details_color', { color: normalizeHex(color) }),
+							await t(guildId, 'imagetext_details_font', { font: fontAttachment ? `\`${fontAttachment.name}\`` : await t(guildId, 'term_default') }),
+							await t(guildId, 'imagetext_details_stroke', { stroke: strokeDetails }),
+							await t(guildId, 'imagetext_details_style', { style: stylingString }),
 						].join('\n'),
 					),
 				)
@@ -384,6 +385,7 @@ module.exports = {
 				)
 				.addFileComponents(new FileBuilder().setURL('attachment://overlay.png'));
 
+			// Resolving final components inside editReply
 			await interaction.editReply({
 				components: [container],
 				files: [generatedAttachment],
@@ -393,10 +395,21 @@ module.exports = {
 		catch (error) {
 			logger.error('Failed to render image overlay:', error);
 
+			// Safely fall back to the error's localized message, otherwise use a translated fallback error body
+			const rawErrorMsg = error?.message || await t(guildId, 'error_generic');
+
+			// tError wraps raw text inside the error master template automatically
+			const errorText = await tError(guildId, rawErrorMsg, {}, true);
+
 			const errorContainer = new ContainerBuilder()
 				.setAccentColor(0xFF0000)
-				.addTextDisplayComponents(textDisplay =>
-					textDisplay.setContent('<:x_:1526217756926808174> **Unable to render your image.**\n' + (error && error.message ? error.message : 'Please try again with a valid image and parameters.')),
+				.addTextDisplayComponents(async textDisplay =>
+					textDisplay.setContent(
+						[
+							`## <:x_:1526217756926808174> ${await t(guildId, 'error_unable_to_render')}`,
+							`-# ${errorText}`,
+						].join('\n'),
+					),
 				);
 
 			await interaction.editReply({

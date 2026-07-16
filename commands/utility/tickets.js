@@ -11,12 +11,14 @@ const {
 	BUTTON_PREFIX,
 } = require('../../utils/ticketSystem');
 const config = require('../../config');
+const { t, tError } = require('../../utils/i18n');
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
 async function requireAdmin(interaction) {
 	if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
-		await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You need **Manage Server** to configure tickets.', 0xFF0000));
+		const errMsg = await tError(interaction.guildId, 'ticket_err_need_manage_server');
+		await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 		return false;
 	}
 	return true;
@@ -24,7 +26,8 @@ async function requireAdmin(interaction) {
 
 async function requireGuild(interaction) {
 	if (!interaction.inGuild()) {
-		await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This command can only be used inside a server.', 0xFF0000));
+		const errMsg = await tError(null, 'error_not_in_guild');
+		await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 		return false;
 	}
 	return true;
@@ -112,7 +115,8 @@ module.exports = {
 		}
 		catch (error) {
 			logger.error(`Failed to execute tickets ${subcommand}:`, error);
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** Something went wrong while running that ticket command.', 0xFF0000));
+			const errMsg = await tError(interaction.guildId, 'ticket_err_command_failed');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 		}
 	},
 };
@@ -121,10 +125,12 @@ async function handleTicketAction(interaction, subcommand) {
 	const ticket = await getActiveTicketFromInteraction(interaction);
 	if (!ticket) return;
 
-	const ticketConfig = await getTicketConfig(interaction.guildId);
+	const guildId = interaction.guildId;
+	const ticketConfig = await getTicketConfig(guildId);
 
 	if (subcommand !== 'reopen' && ticket.status === 'closed') {
-		await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This ticket is closed. Use `/tickets reopen` first.', 0xFF0000));
+		const errMsg = await tError(guildId, 'ticket_err_closed');
+		await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 		return;
 	}
 
@@ -136,12 +142,14 @@ async function handleTicketAction(interaction, subcommand) {
 	}
 	case 'reopen': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to reopen this ticket.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_no_reopen_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
 		if (ticket.status === 'open') {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** This ticket is already open.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_already_open');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
@@ -154,18 +162,22 @@ async function handleTicketAction(interaction, subcommand) {
 		await thread.setArchived(false, 'Ticket reopened');
 
 		// Create a visible reopen alert message inside the ticket
-		const reopenNotice = buildTextContainer(`<:check:1526217602010185959> **This ticket has been reopened by <@${interaction.user.id}>.**`);
+		const alertText = await t(guildId, 'ticket_reopened_notice', { userId: interaction.user.id });
+		const replyText = await t(guildId, 'ticket_reopened_reply');
+
+		const reopenNotice = buildTextContainer(alertText);
 		await thread.send({
 			components: [reopenNotice],
 			flags: MessageFlags.IsComponentsV2,
 		});
 
-		await replyContainer(interaction, buildTextContainer('<:check:1526217602010185959> **Ticket reopened.**'));
+		await replyContainer(interaction, buildTextContainer(replyText));
 		break;
 	}
 	case 'add': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to add members.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_no_add_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
@@ -177,18 +189,21 @@ async function handleTicketAction(interaction, subcommand) {
 			await ticket.save();
 		}
 
-		await replyContainer(interaction, buildTextContainer(`<:check:1526217602010185959> Added <@${member.id}> to the ticket.`));
+		const successMsg = await t(guildId, 'ticket_member_added', { userId: member.id });
+		await replyContainer(interaction, buildTextContainer(successMsg));
 		break;
 	}
 	case 'remove': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to remove members.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_no_remove_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
 		const member = interaction.options.getUser('member');
 		if (member.id === ticket.openerId) {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You cannot remove the ticket opener.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_cannot_remove_opener');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
@@ -196,34 +211,37 @@ async function handleTicketAction(interaction, subcommand) {
 		ticket.participants = ticket.participants.filter(id => id !== member.id);
 		await ticket.save();
 
-		await replyContainer(interaction, buildTextContainer(`<:check:1526217602010185959> Removed <@${member.id}> from the ticket.`));
+		const successMsg = await t(guildId, 'ticket_member_removed', { userId: member.id });
+		await replyContainer(interaction, buildTextContainer(successMsg));
 		break;
 	}
 	case 'rename': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to rename this ticket.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_no_rename_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
 		const name = interaction.options.getString('name');
 		await interaction.channel.setName(name);
-		await replyContainer(interaction, buildTextContainer(`<:check:1526217602010185959> Ticket renamed to **${name}**.`));
+
+		const successMsg = await t(guildId, 'ticket_renamed', { name });
+		await replyContainer(interaction, buildTextContainer(successMsg));
 		break;
 	}
 	case 'claim': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
-			await replyContainer(interaction, buildTextContainer('<:x_:1526217756926808174> **Error:** You do not have permission to claim tickets.', 0xFF0000));
+			const errMsg = await tError(guildId, 'ticket_err_no_claim_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
 			return;
 		}
 
 		const isUnclaiming = ticket.claimedBy === interaction.user.id;
 
 		if (isUnclaiming) {
-			// Unclaim logic
 			ticket.claimedBy = null;
 		}
 		else {
-			// Claim logic
 			ticket.claimedBy = interaction.user.id;
 			if (!ticket.participants.includes(interaction.user.id)) {
 				ticket.participants.push(interaction.user.id);
@@ -236,36 +254,34 @@ async function handleTicketAction(interaction, subcommand) {
 			try {
 				const welcomeMsg = await interaction.channel.messages.fetch(ticket.welcomeMessageId);
 				if (welcomeMsg) {
-					const displayClaimed = ticket.claimedBy ? `<@${ticket.claimedBy}>` : 'No one';
+					const displayClaimed = ticket.claimedBy ? `<@${ticket.claimedBy}>` : await t(guildId, 'term_no_one');
+
+					const title = await t(guildId, 'ticket_welcome_title', { category: ticket.categoryLabel });
+					const body = await t(guildId, 'ticket_welcome_body');
+					const footer = await t(guildId, 'ticket_welcome_footer');
+
+					const openerLine = await t(guildId, 'ticket_welcome_opener', { openerId: ticket.openerId });
+					const categoryLine = await t(guildId, 'ticket_welcome_category', { category: ticket.categoryLabel });
+					const idLine = await t(guildId, 'ticket_welcome_id', { threadId: ticket.threadId });
+					const claimedLine = await t(guildId, 'ticket_welcome_claimed', { claimer: displayClaimed });
+					const buttonText = await t(guildId, 'ticket_btn_close');
+
 					const updatedContainer = new ContainerBuilder()
 						.setAccentColor(accentColor)
 						.addTextDisplayComponents(textDisplay =>
-							textDisplay.setContent(
-								[
-									`## <:ticket:1527187232488947813> ${ticket.categoryLabel} Ticket`,
-									'Welcome! Support will be with you shortly.',
-									'-# Use the button below or `/tickets close` when you are done.',
-								].join('\n'),
-							),
+							textDisplay.setContent([title, body, footer].join('\n')),
 						)
 						.addSeparatorComponents(separator =>
 							separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true),
 						)
 						.addTextDisplayComponents(textDisplay =>
-							textDisplay.setContent(
-								[
-									`<:user:1526207642622759134> **Opener:** <@${ticket.openerId}>`,
-									`<:folders:1527035124632522772> **Category:** ${ticket.categoryLabel}`,
-									`<:hash:1527190378737045637> **Ticket ID:** \`${ticket.threadId}\``,
-									`<:shield:1527035003492368558> **Claimed by:** ${displayClaimed}`,
-								].join('\n'),
-							),
+							textDisplay.setContent([openerLine, categoryLine, idLine, claimedLine].join('\n')),
 						)
 						.addActionRowComponents(
 							new ActionRowBuilder().addComponents(
 								new ButtonBuilder()
 									.setCustomId(`${BUTTON_PREFIX}:close:${ticket.threadId}`)
-									.setLabel('Close Ticket')
+									.setLabel(buttonText)
 									.setStyle(ButtonStyle.Danger),
 							),
 						);
@@ -282,18 +298,24 @@ async function handleTicketAction(interaction, subcommand) {
 		}
 
 		if (isUnclaiming) {
+			const alertMsg = await t(guildId, 'ticket_unclaimed_notice', { userId: interaction.user.id });
+			const replyMsg = await t(guildId, 'ticket_unclaimed_reply');
+
 			await interaction.channel.send({
-				components: [buildTextContainer(`<:x_:1526217756926808174> <@${interaction.user.id}> has unclaimed this ticket.`)],
+				components: [buildTextContainer(alertMsg)],
 				flags: MessageFlags.IsComponentsV2,
 			});
-			await replyContainer(interaction, buildTextContainer('<:check:1526217602010185959> **Ticket unclaimed.**'));
+			await replyContainer(interaction, buildTextContainer(replyMsg));
 		}
 		else {
+			const alertMsg = await t(guildId, 'ticket_claimed_notice', { userId: interaction.user.id });
+			const replyMsg = await t(guildId, 'ticket_claimed_reply');
+
 			await interaction.channel.send({
-				components: [buildTextContainer(`<:check:1526217602010185959> <@${interaction.user.id}> has claimed this ticket.`)],
+				components: [buildTextContainer(alertMsg)],
 				flags: MessageFlags.IsComponentsV2,
 			});
-			await replyContainer(interaction, buildTextContainer('<:check:1526217602010185959> **Ticket claimed.**'));
+			await replyContainer(interaction, buildTextContainer(replyMsg));
 		}
 		break;
 	}

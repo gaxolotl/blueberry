@@ -2,6 +2,7 @@ const { SlashCommandBuilder, ContainerBuilder, SeparatorSpacingSize, MessageFlag
 const { getRecentInviteRecords } = require('../../utils/inviteTracker');
 const logger = require('../../utils/logger');
 const config = require('../../config.js');
+const { t, tError } = require('../../utils/i18n');
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -10,8 +11,6 @@ function toUnix(dateLike) {
 	return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
 }
 
-// g #2f8e50
-// r #C0392B
 function boolBadge(value) {
 	return value ? '<:check:1526217602010185959>' : '<:x_:1526217756926808174>';
 }
@@ -22,12 +21,13 @@ module.exports = {
 		.setDescription('Shows the latest invite join records captured by the bot'),
 
 	async execute(interaction) {
+		const guildId = interaction.guildId;
+
 		if (!interaction.inGuild()) {
+			const errorMsg = await tError(null, 'error_not_in_guild');
 			const guildOnly = new ContainerBuilder()
 				.setAccentColor(0xFF0000)
-				.addTextDisplayComponents(textDisplay =>
-					textDisplay.setContent('<:x_:1526217756926808174> **Error:** This command can only be used inside a server.'),
-				);
+				.addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
 
 			return interaction.reply({
 				components: [guildOnly],
@@ -37,16 +37,15 @@ module.exports = {
 
 		let latest;
 		try {
-			latest = await getRecentInviteRecords(interaction.guildId);
+			latest = await getRecentInviteRecords(guildId);
 		}
 		catch (error) {
 			logger.error(`Failed to execute ${interaction.commandName}:`, error);
 
+			const errorMsg = await tError(guildId, 'error_fetching_invites');
 			const errorContainer = new ContainerBuilder()
 				.setAccentColor(0xFF0000)
-				.addTextDisplayComponents(textDisplay =>
-					textDisplay.setContent('# <:x_:1526217756926808174> **Error:** Something went wrong while fetching invite records.'),
-				);
+				.addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
 
 			return interaction.reply({
 				components: [errorContainer],
@@ -55,10 +54,13 @@ module.exports = {
 		}
 
 		if (!latest.length) {
+			const emptyTitle = await t(guildId, 'invites_empty_title');
+			const emptySubtitle = await t(guildId, 'invites_empty_subtitle');
+
 			const empty = new ContainerBuilder()
 				.setAccentColor(accentColor)
 				.addTextDisplayComponents(textDisplay =>
-					textDisplay.setContent('# <:usersearch:1526207750479020062> **No invite join records have been captured yet.**\n-# Maybe try inviting someone :)'),
+					textDisplay.setContent([emptyTitle, emptySubtitle].join('\n')),
 				);
 
 			return interaction.reply({
@@ -67,18 +69,24 @@ module.exports = {
 			});
 		}
 
+		// Handle conditional plural string parsing for the header
+		const countStr = latest.length.toString();
+		const subtitleKey = latest.length === 1 ? 'invites_recent_joins_singular' : 'invites_recent_joins_plural';
+		const resolvedSubtitle = await t(guildId, subtitleKey, { count: countStr });
+
 		const container = new ContainerBuilder()
 			.setAccentColor(accentColor)
-			.addTextDisplayComponents(textDisplay =>
+			.addTextDisplayComponents(async textDisplay =>
 				textDisplay.setContent(
 					[
-						'## <:usersearch:1526207750479020062> Invite Tracker',
-						`-# Showing the ${latest.length} most recent join${latest.length === 1 ? '' : 's'}`,
+						await t(guildId, 'invites_title'),
+						resolvedSubtitle,
 					].join('\n'),
 				),
 			);
 
-		latest.forEach((record) => {
+		// Using a for...of loop allows synchronous await cycles across async translations safely
+		for (const record of latest) {
 			container.addSeparatorComponents(separator =>
 				separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true),
 			);
@@ -90,21 +98,31 @@ module.exports = {
 
 			const usesDisplay = `\`${record.uses}\` / \`${record.maxUses === 0 || record.maxUses == null ? '∞' : record.maxUses}\``;
 
+			const joinedTranslated = await t(guildId, 'invites_record_joined', { joinedLine });
+			const inviteInfoTranslated = await t(guildId, 'invites_record_invite_info', { code: record.inviteCode, link: record.inviteLink });
+			const invitedByTranslated = await t(guildId, 'invites_record_invited_by', { inviterId: record.inviterId });
+			const channelTranslated = await t(guildId, 'invites_record_channel', { channelId: record.channelId });
+			const metaTranslated = await t(guildId, 'invites_record_meta', {
+				usesDisplay,
+				temporary: boolBadge(record.temporary),
+				vanity: boolBadge(record.vanityUrlJoin),
+			});
+
 			container.addTextDisplayComponents(textDisplay =>
 				textDisplay.setContent(
 					[
 						`<:user:1526207642622759134> **<@${record.memberId}>** \`${record.memberId}\``,
-						`> Joined ${joinedLine}`,
+						`> ${joinedTranslated}`,
 						'',
-						`<:userplus:1526207309032984777> Invite \`${record.inviteCode}\` - [Link](${record.inviteLink})`,
-						`> Invited by **<@${record.inviterId}>** \`${record.inviterId}\``,
+						inviteInfoTranslated,
+						`> ${invitedByTranslated}`,
 						'',
-						`<:useredit:1526207844448211014> Channel: <#${record.channelId}>`,
-						`Uses: ${usesDisplay} • Temporary: ${boolBadge(record.temporary)} • Vanity: ${boolBadge(record.vanityUrlJoin)}`,
+						channelTranslated,
+						metaTranslated,
 					].join('\n'),
 				),
 			);
-		});
+		}
 
 		await interaction.reply({
 			components: [container],
