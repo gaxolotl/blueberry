@@ -8,7 +8,7 @@
 
 <p align="center">
   <strong>🇬🇧 English</strong> •
-  [🇧🇬 Български](/assets/README_BG.md)
+  <a href="/assets/README_BG.md">🇧🇬 Български</a>
 </p>
 
 ---
