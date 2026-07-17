@@ -6,6 +6,11 @@
   <strong>Blueberry</strong> is a modern Discord bot with advanced features and customization, all completely free.
 </p>
 
+<p align="center">
+  <strong>🇬🇧 English</strong> •
+  [🇧🇬 Български](/assets/README_BG.md)
+</p>
+
 ---
 
 # Features
