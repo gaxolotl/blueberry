@@ -15,6 +15,8 @@
 - Quick image manipulation commands
 - More to come!
 
+> [!NOTE]
+> If you do not like that AI usage is allowed in the repo feel free to fork the project as long as you abide by the [LICENSE](./LICENSE)
 ---
 
 # Support the project
