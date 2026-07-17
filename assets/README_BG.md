@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/blueberry_word_small.png" alt="Синя боровинка" width="520">
+  <img src="/assets/blueberry_word_small.png" alt="Blueberry" width="520">
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@
 
 1. Клонирайте репото
 ```bash
-git clone https://github.com/NotValra/RoValra.git
+git clone https://github.com/gaxolotl/blueberry
 ```
 
 2. Инсталирайте нужните пакети

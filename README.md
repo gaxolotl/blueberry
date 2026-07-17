@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/blueberry_word_small.png" alt="Blueberry" width="520">
+  <img src="/assets/blueberry_word_small.png" alt="Blueberry" width="520">
 </p>
 
 <p align="center">
@@ -40,7 +40,7 @@ Requirements:
 
 1. Clone the repo
 ```bash
-git clone https://github.com/NotValra/RoValra.git
+git clone https://github.com/gaxolotl/blueberry
 ```
 
 2. Install required packages
