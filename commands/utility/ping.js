@@ -1,10 +1,10 @@
-const { SlashCommandBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize } = require('discord.js');
-const config = require('../../config.js');
-const { t, tError } = require('../../utils/i18n');
+import { SlashCommandBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize } from 'discord.js';
+import config from '../../config.js';
+import { t, tError } from '../../utils/i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
-module.exports = {
+export default {
 	data: new SlashCommandBuilder()
 		.setName('ping')
 		.setDescription('Replies with Pong!'),

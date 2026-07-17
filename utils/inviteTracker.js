@@ -1,4 +1,4 @@
-const InviteJoin = require('../models/InviteJoin');
+import InviteJoin from '../models/InviteJoin.js';
 
 const inviteSnapshots = new Map();
 
@@ -109,7 +109,7 @@ function findInviteThatWasUsed(previousSnapshot, currentSnapshot) {
 	return null;
 }
 
-module.exports = {
+export {
 	buildInviteRecord,
 	serializeInvite,
 	getRecentInviteRecords,

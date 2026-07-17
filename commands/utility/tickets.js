@@ -1,17 +1,8 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, SeparatorSpacingSize, ButtonStyle, ActionRowBuilder, ButtonBuilder } = require('discord.js');
-const logger = require('../../utils/logger');
-const {
-	buildTextContainer,
-	replyContainer,
-	canManageTicket,
-	getActiveTicketFromInteraction,
-	closeTicket,
-	startConfigSession,
-	getTicketConfig,
-	BUTTON_PREFIX,
-} = require('../../utils/ticketSystem');
-const config = require('../../config');
-const { t, tError } = require('../../utils/i18n');
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, SeparatorSpacingSize, ButtonStyle, ActionRowBuilder, ButtonBuilder } from 'discord.js';
+import logger from '../../utils/logger.js';
+import { buildTextContainer, replyContainer, canManageTicket, getActiveTicketFromInteraction, closeTicket, startConfigSession, getTicketConfig, BUTTON_PREFIX } from '../../utils/ticketSystem.js';
+import config from '../../config.js';
+import { t, tError } from '../../utils/i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -33,7 +24,7 @@ async function requireGuild(interaction) {
 	return true;
 }
 
-module.exports = {
+export default {
 	data: new SlashCommandBuilder()
 		.setName('tickets')
 		.setDescription('Thread-based support ticket system')

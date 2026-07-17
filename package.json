@@ -2,6 +2,7 @@
   "name": "blueberry",
   "version": "0.0.1",
   "description": "Discord Bot with a bunch of utilities, I think.",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node --env-file=.env index.js",

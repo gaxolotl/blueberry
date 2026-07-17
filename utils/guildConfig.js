@@ -1,16 +1,8 @@
-const {
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
-	ContainerBuilder,
-	MessageFlags,
-	SeparatorSpacingSize,
-	StringSelectMenuBuilder,
-} = require('discord.js');
-const Guild = require('../models/Guild');
-const config = require('../config');
-const logger = require('./logger');
-const { t } = require('./i18n');
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder } from 'discord.js';
+import Guild from '../models/Guild.js';
+import config from '../config.js';
+import logger from './logger.js';
+import { t } from './i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const CONFIG_PREFIX = 'gcfg';
@@ -175,7 +167,7 @@ async function startConfigSession(interaction) {
 	});
 }
 
-module.exports = {
+export {
 	getGuildConfig,
 	startConfigSession,
 };

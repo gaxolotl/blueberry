@@ -1,14 +1,8 @@
-const { Events } = require('discord.js');
-const {
-	appendInviteRecord,
-	buildInviteRecord,
-	findInviteThatWasUsed,
-	getStoredInviteSnapshot,
-	snapshotGuildInvites,
-} = require('../utils/inviteTracker');
-const logger = require('../utils/logger');
+import { Events } from 'discord.js';
+import { appendInviteRecord, buildInviteRecord, findInviteThatWasUsed, getStoredInviteSnapshot, snapshotGuildInvites } from '../utils/inviteTracker.js';
+import logger from '../utils/logger.js';
 
-module.exports = {
+export default {
 	name: Events.GuildMemberAdd,
 	async execute(member) {
 		const guild = member.guild;

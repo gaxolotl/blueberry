@@ -1,8 +1,8 @@
-const { Events, MessageFlags } = require('discord.js');
-const logger = require('../utils/logger');
-const { handleTicketButton } = require('../utils/ticketSystem');
+import { Events, MessageFlags } from 'discord.js';
+import logger from '../utils/logger.js';
+import { handleTicketButton } from '../utils/ticketSystem.js';
 
-module.exports = {
+export default {
 	name: Events.InteractionCreate,
 	async execute(interaction) {
 		if (interaction.isButton()) {

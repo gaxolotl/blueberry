@@ -1,8 +1,8 @@
-const { Events } = require('discord.js');
-const { snapshotGuildInvites } = require('../utils/inviteTracker');
-const logger = require('../utils/logger');
+import { Events } from 'discord.js';
+import { snapshotGuildInvites } from '../utils/inviteTracker.js';
+import logger from '../utils/logger.js';
 
-module.exports = {
+export default {
 	name: Events.ClientReady,
 	once: true,
 	async execute(client) {

@@ -1,12 +1,12 @@
-const { REST, Routes } = require('discord.js');
-const { clientId, guildId } = require('../config.js');
-const fs = require('node:fs');
-const path = require('node:path');
-const logger = require('../utils/logger');
+import { REST, Routes } from 'discord.js';
+import { clientId, guildId } from '../config.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import logger from '../utils/logger.js';
 
 const commands = [];
 // Grab all the command folders from the commands directory you created earlier
-const foldersPath = path.join(__dirname, '../commands');
+const foldersPath = path.join(import.meta.dirname, '../commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {

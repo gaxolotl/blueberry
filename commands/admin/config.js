@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder } = require('discord.js');
-const logger = require('../../utils/logger');
-const { startConfigSession } = require('../../utils/guildConfig');
-const config = require('../../config');
-const { tError } = require('../../utils/i18n');
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder } from 'discord.js';
+import logger from '../../utils/logger.js';
+import { startConfigSession } from '../../utils/guildConfig.js';
+import config from '../../config.js';
+import { tError } from '../../utils/i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -34,7 +34,7 @@ async function requireGuild(interaction) {
 	return true;
 }
 
-module.exports = {
+export default {
 	data: new SlashCommandBuilder()
 		.setName('config')
 		.setDescription('Open the interactive server configuration dashboard')

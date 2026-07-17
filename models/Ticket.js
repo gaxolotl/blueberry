@@ -1,4 +1,4 @@
-const { Schema, model } = require('mongoose');
+import { Schema, model } from 'mongoose';
 
 const ticketSchema = new Schema({
 	guildId: { type: String, required: true, index: true },
@@ -18,4 +18,4 @@ const ticketSchema = new Schema({
 ticketSchema.index({ guildId: 1, openerId: 1, status: 1 });
 ticketSchema.index({ guildId: 1, status: 1, createdAt: -1 });
 
-module.exports = model('Ticket', ticketSchema);
+export default model('Ticket', ticketSchema);

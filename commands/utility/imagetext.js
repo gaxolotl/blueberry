@@ -1,21 +1,15 @@
-const {
-	SlashCommandBuilder,
-	ContainerBuilder,
-	MessageFlags,
-	SeparatorSpacingSize,
-	FileBuilder,
-	AttachmentBuilder,
-} = require('discord.js');
-const fs = require('node:fs/promises');
-const os = require('node:os');
-const path = require('node:path');
-const { Resvg } = require('@resvg/resvg-js');
-const sizeOf = require('image-size').imageSize || require('image-size');
-const logger = require('../../utils/logger');
-const config = require('../../config.js');
-const { t, tError } = require('../../utils/i18n');
+import { SlashCommandBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize, FileBuilder, AttachmentBuilder } from 'discord.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { Resvg } from '@resvg/resvg-js';
+import sizeOfImport from 'image-size';
+import logger from '../../utils/logger.js';
+import config from '../../config.js';
+import { t, tError } from '../../utils/i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+const sizeOf = sizeOfImport.imageSize ?? sizeOfImport;
 
 function escapeXml(value) {
 	return String(value)
@@ -180,7 +174,7 @@ async function renderOverlay({
 	return pngData.asPng();
 }
 
-module.exports = {
+export default {
 	data: new SlashCommandBuilder()
 		.setName('imagetext')
 		.setDescription('Draw custom text onto an uploaded image')

@@ -1,4 +1,4 @@
-const logger = require('./logger');
+import logger from './logger.js';
 
 let messagesModule = null;
 
@@ -68,7 +68,7 @@ async function tError(guildId, key, params = {}) {
 	return `${prefix} ${body}`;
 }
 
-module.exports = {
+export {
 	t,
 	tError,
 };

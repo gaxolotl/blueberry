@@ -1,4 +1,4 @@
-const { Schema, model } = require('mongoose');
+import { Schema, model } from 'mongoose';
 
 const inviteJoinSchema = new Schema({
 	guildId: { type: String, required: true, index: true },
@@ -22,4 +22,4 @@ const inviteJoinSchema = new Schema({
 
 inviteJoinSchema.index({ guildId: 1, joinedAt: -1 });
 
-module.exports = model('InviteJoin', inviteJoinSchema);
+export default model('InviteJoin', inviteJoinSchema);

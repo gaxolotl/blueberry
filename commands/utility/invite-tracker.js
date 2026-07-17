@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, ContainerBuilder, SeparatorSpacingSize, MessageFlags } = require('discord.js');
-const { getRecentInviteRecords } = require('../../utils/inviteTracker');
-const logger = require('../../utils/logger');
-const config = require('../../config.js');
-const { t, tError } = require('../../utils/i18n');
+import { SlashCommandBuilder, ContainerBuilder, SeparatorSpacingSize, MessageFlags } from 'discord.js';
+import { getRecentInviteRecords } from '../../utils/inviteTracker.js';
+import logger from '../../utils/logger.js';
+import config from '../../config.js';
+import { t, tError } from '../../utils/i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -15,7 +15,7 @@ function boolBadge(value) {
 	return value ? '<:check:1526217602010185959>' : '<:x_:1526217756926808174>';
 }
 
-module.exports = {
+export default {
 	data: new SlashCommandBuilder()
 		.setName('invites')
 		.setDescription('Shows the latest invite join records captured by the bot'),

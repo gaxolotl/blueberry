@@ -1,4 +1,4 @@
-const { Schema, model } = require('mongoose');
+import { Schema, model } from 'mongoose';
 
 const ticketCategorySchema = new Schema({
 	id: { type: String, required: true },
@@ -20,4 +20,4 @@ const ticketConfigSchema = new Schema({
 	maxOpenPerUser: { type: Number, default: 1 },
 });
 
-module.exports = model('TicketConfig', ticketConfigSchema);
+export default model('TicketConfig', ticketConfigSchema);

@@ -1,24 +1,9 @@
-const {
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
-	ChannelSelectMenuBuilder,
-	ChannelType,
-	ContainerBuilder,
-	MessageFlags,
-	ModalBuilder,
-	PermissionFlagsBits,
-	RoleSelectMenuBuilder,
-	SeparatorSpacingSize,
-	StringSelectMenuBuilder,
-	TextInputBuilder,
-	TextInputStyle,
-} = require('discord.js');
-const Ticket = require('../models/Ticket');
-const TicketConfig = require('../models/TicketConfig');
-const config = require('../config.js');
-const logger = require('./logger');
-const { t } = require('./i18n');
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, ContainerBuilder, MessageFlags, ModalBuilder, PermissionFlagsBits, RoleSelectMenuBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import Ticket from '../models/Ticket.js';
+import TicketConfig from '../models/TicketConfig.js';
+import config from '../config.js';
+import logger from './logger.js';
+import { t } from './i18n.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const BUTTON_PREFIX = 'ticket';
@@ -1318,7 +1303,7 @@ async function getActiveTicketFromInteraction(interaction) {
 	return ticket;
 }
 
-module.exports = {
+export {
 	accentColor,
 	BUTTON_PREFIX,
 	CONFIG_PREFIX,

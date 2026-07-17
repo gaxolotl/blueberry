@@ -1,4 +1,4 @@
-const { Schema, model } = require('mongoose');
+import { Schema, model } from 'mongoose';
 
 const guildSchema = new Schema({
 	guildId: { type: String, required: true, unique: true, index: true },
@@ -6,4 +6,4 @@ const guildSchema = new Schema({
 	createdAt: { type: Date, default: Date.now },
 });
 
-module.exports = model('Guild', guildSchema);
+export default model('Guild', guildSchema);

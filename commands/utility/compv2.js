@@ -1,25 +1,9 @@
-const {
-	SlashCommandBuilder,
-	ContainerBuilder,
-	SectionBuilder,
-	TextDisplayBuilder,
-	ThumbnailBuilder,
-	MediaGalleryBuilder,
-	FileBuilder,
-	SeparatorBuilder,
-	SeparatorSpacingSize,
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
-	StringSelectMenuBuilder,
-	AttachmentBuilder,
-	MessageFlags,
-} = require('discord.js');
-const config = require('../../config.js');
+import { SlashCommandBuilder, ContainerBuilder, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, MediaGalleryBuilder, FileBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
+import config from '../../config.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
-module.exports = {
+export default {
 	data: new SlashCommandBuilder()
 		.setName('showcase')
 		.setDescription('Shows off every Components V2 building block in one message'),
