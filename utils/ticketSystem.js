@@ -590,19 +590,17 @@ async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 	return container;
 }
 
-// NOTE: CONTINUE TRANSLATIONS FROM HERE
-// NOTE: CONTINUE TRANSLATIONS FROM HERE
-// NOTE: CONTINUE TRANSLATIONS FROM HERE
-
 /**
  * @param {string} guildId
  * @param {import('mongoose').Document} ticketConfig
  * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
 async function buildConfigRolesContainer(guildId, ticketConfig) {
+	const supportRolesTerm = await t(guildId, 'term_support_roles')
+
 	const select = new RoleSelectMenuBuilder()
 		.setCustomId(`${CONFIG_PREFIX}:roles:set`)
-		.setPlaceholder('Select support roles...')
+		.setPlaceholder(t(guildId, 'ticket_cfg_support_roles_placeholder'))
 		.setMinValues(0)
 		.setMaxValues(10);
 
@@ -617,12 +615,12 @@ async function buildConfigRolesContainer(guildId, ticketConfig) {
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:shield:1527035003492368558> Support Roles'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(`## <:shield:1527035003492368558> ${supportRolesTerm}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
 				supportRolesText,
-				'-# Selected roles (plus Manage Server/Channels) can manage tickets. Selecting replaces the full list.',
+				t(guildId, 'ticket_cfg_support_roles_select_desc'),
 			].join('\n'),
 		))
 		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
@@ -646,12 +644,13 @@ async function buildConfigLimitContainer(guildId, ticketConfig) {
 		})));
 
 	const backRow = await buildBackRow(guildId);
+	const termTicketLimit = await t(guildId, 'term_ticket_limit')
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:infinity:1527034881715208273> Ticket Limit'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(`## <:infinity:1527034881715208273> ${termTicketLimit}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Maximum number of open tickets a single user may have at once.'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(t(guildId, 'ticket_cfg_ticket_limit_desc')))
 		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
 		.addActionRowComponents(backRow);
