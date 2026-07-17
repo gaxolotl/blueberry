@@ -359,9 +359,7 @@ function canManageTicket(member, ticketConfig, ticket) {
 	return false;
 }
 
-/* ------------------------------------------------------------------------ */
-/*  Interactive /tickets config dashboard (Components V2)                    */
-/* ------------------------------------------------------------------------ */
+// dashboard
 
 /**
  * @param {string} guildId
@@ -413,6 +411,7 @@ async function buildConfigHomeContainer(guildId, ticketConfig) {
 	const navRolesDesc = await t(guildId, 'ticket_cfg_nav_roles_desc');
 	const navLimit = await t(guildId, 'ticket_cfg_nav_limit');
 	const navLimitDesc = await t(guildId, 'ticket_cfg_nav_limit_desc');
+	const selectSectionDesc = await t(guildId, 'ticket_cfg_select_section_desc');
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
@@ -429,7 +428,7 @@ async function buildConfigHomeContainer(guildId, ticketConfig) {
 			].join('\n'),
 		))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
-		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Select a section below to configure it.'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(selectSectionDesc))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new StringSelectMenuBuilder()
@@ -457,35 +456,42 @@ async function buildConfigChannelsContainer(guildId, ticketConfig) {
 	const logChanText = await t(guildId, 'ticket_cfg_log_chan', { channel: ticketConfig.logChannelId ? `<#${ticketConfig.logChannelId}>` : notSet });
 	const backRow = await buildBackRow(guildId);
 
+	const privateTicketsDesc = await t(guildId, 'ticket_cfg_private_tickets_desc');
+	const newTicketsDesc = await t(guildId, 'ticket_cfg_new_ticket_alert_desc');
+	const selectThreadPlaceholder = await t(guildId, 'ticket_cfg_select_thread_placeholder');
+	const selectLogPlaceholder = await t(guildId, 'ticket_cfg_select_log_placeholder');
+
+	const termChannels = await t(guildId, 'term_channels');
+
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:folder:1527035309727158372> Channels'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(`## <:folder:1527035309727158372> ${termChannels}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
 				threadChanText,
-				'-# Where private ticket threads are created.',
+				privateTicketsDesc,
 			].join('\n'),
 		))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new ChannelSelectMenuBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:channels:thread`)
-					.setPlaceholder('Select thread channel...')
+					.setPlaceholder(selectThreadPlaceholder)
 					.addChannelTypes(ChannelType.GuildText),
 			),
 		)
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
 				logChanText,
-				'-# Where new-ticket alerts are posted for staff.',
+				newTicketsDesc,
 			].join('\n'),
 		))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new ChannelSelectMenuBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:channels:log`)
-					.setPlaceholder('Select log channel...')
+					.setPlaceholder(selectLogPlaceholder)
 					.addChannelTypes(ChannelType.GuildText),
 			),
 		)
@@ -503,29 +509,39 @@ async function buildConfigPanelContainer(guildId, ticketConfig) {
 	const panelChanText = await t(guildId, 'ticket_cfg_panel_chan', { channel: ticketConfig.panelChannelId ? `<#${ticketConfig.panelChannelId}>` : notSent });
 	const backRow = await buildBackRow(guildId);
 
+	const termPanel = await t(guildId, 'term_panel');
+	const termTitle = await t(guildId, 'term_title');
+	const termDescription = await t(guildId, 'term_description');
+
+	const btnEditTitleDesc = await t(guildId, 'ticket_cfg_btn_edit_title_desc');
+	const btnRefreshPanel = await t(guildId, 'ticket_cfg_btn_refresh_panel');
+
+	const panelDesc = await t(guildId, 'ticket_cfg_panel_channel_desc');
+	const channelPlaceholder = await t(guildId, 'ticket_cfg_select_channel_placeholder');
+
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:monitorcog:1527035219109085234> Panel'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(`## <:monitorcog:1527035219109085234> ${termPanel}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
 			[
-				`**Title:** ${ticketConfig.panelTitle}`,
-				`**Description:** ${ticketConfig.panelDescription}`,
+				`**${termTitle}:** ${ticketConfig.panelTitle}`,
+				`**${termDescription}:** ${ticketConfig.panelDescription}`,
 				panelChanText,
 			].join('\n'),
 		))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
-				new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:panel:edit_text`).setLabel('Edit Title/Description').setStyle(ButtonStyle.Primary),
-				new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:panel:refresh`).setLabel('Refresh Live Panel').setStyle(ButtonStyle.Secondary),
+				new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:panel:edit_text`).setLabel(btnEditTitleDesc).setStyle(ButtonStyle.Primary),
+				new ButtonBuilder().setCustomId(`${CONFIG_PREFIX}:panel:refresh`).setLabel(btnRefreshPanel).setStyle(ButtonStyle.Secondary),
 			),
 		)
-		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Select a channel below to send (or resend) the panel there.'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(panelDesc))
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new ChannelSelectMenuBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:panel:send`)
-					.setPlaceholder('Select channel to send panel...')
+					.setPlaceholder(channelPlaceholder)
 					.addChannelTypes(ChannelType.GuildText),
 			),
 		)
@@ -540,25 +556,33 @@ async function buildConfigPanelContainer(guildId, ticketConfig) {
  */
 async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 	const backRow = await buildBackRow(guildId);
+	const termCategories = await t(guildId, 'term_categories');
+	const termSlot = await t(guildId, 'term_slot');
+	const termEmpty = await t(guildId, 'term_empty');
+	const termEdit = await t(guildId, 'term_edit');
+	const termSet = await t(guildId, 'term_set');
+	const termRemove = await t(guildId, 'term_remove');
+	const categoriesDesc = await t(guildId, 'ticket_cfg_panel_categories_desc');
+
 	const container = new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(tMsg => tMsg.setContent('## <:folders:1527035124632522772> Categories'))
+		.addTextDisplayComponents(tMsg => tMsg.setContent(`## <:folders:1527035124632522772> ${termCategories}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-		.addTextDisplayComponents(tMsg => tMsg.setContent('-# Up to 3 categories appear as buttons on the ticket panel.'));
+		.addTextDisplayComponents(tMsg => tMsg.setContent(categoriesDesc));
 
 	for (let slot = 1; slot <= 3; slot++) {
 		const category = ticketConfig.categories[slot - 1];
 
 		container.addTextDisplayComponents(tMsg => tMsg.setContent(
 			category
-				? `**Slot ${slot}:** ${category.emoji ? `${category.emoji} ` : ''}${category.label} \`(${category.id})\`${category.description ? `\n-# ${category.description}` : ''}`
-				: `**Slot ${slot}:** _Empty_`,
+				? `**${termSlot} ${slot}:** ${category.emoji ? `${category.emoji} ` : ''}${category.label} \`(${category.id})\`${category.description ? `\n-# ${category.description}` : ''}`
+				: `**${termSlot} ${slot}:** _${termEmpty}_`,
 		));
 
 		const row = new ActionRowBuilder().addComponents(
 			new ButtonBuilder()
 				.setCustomId(`${CONFIG_PREFIX}:categories:edit:${slot}`)
-				.setLabel(category ? 'Edit' : 'Set')
+				.setLabel(category ? termEdit : termSet)
 				.setStyle(ButtonStyle.Primary),
 		);
 
@@ -566,7 +590,7 @@ async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 			row.addComponents(
 				new ButtonBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:categories:remove:${slot}`)
-					.setLabel('Remove')
+					.setLabel(termRemove)
 					.setStyle(ButtonStyle.Danger),
 			);
 		}
@@ -580,6 +604,10 @@ async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 
 	return container;
 }
+
+// NOTE: CONTINUE TRANSLATIONS FROM HERE
+// NOTE: CONTINUE TRANSLATIONS FROM HERE
+// NOTE: CONTINUE TRANSLATIONS FROM HERE
 
 /**
  * @param {string} guildId
