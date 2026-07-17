@@ -596,7 +596,7 @@ async function buildConfigCategoriesContainer(guildId, ticketConfig) {
  * @returns {Promise<import('discord.js').ContainerBuilder>}
  */
 async function buildConfigRolesContainer(guildId, ticketConfig) {
-	const supportRolesTerm = await t(guildId, 'term_support_roles')
+	const supportRolesTerm = await t(guildId, 'term_support_roles');
 
 	const select = new RoleSelectMenuBuilder()
 		.setCustomId(`${CONFIG_PREFIX}:roles:set`)
@@ -644,7 +644,7 @@ async function buildConfigLimitContainer(guildId, ticketConfig) {
 		})));
 
 	const backRow = await buildBackRow(guildId);
-	const termTicketLimit = await t(guildId, 'term_ticket_limit')
+	const termTicketLimit = await t(guildId, 'term_ticket_limit');
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
