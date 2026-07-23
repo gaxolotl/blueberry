@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { Client, Collection, GatewayIntentBits, ActivityType } from 'discord.js';
 
 import logger from './utils/logger.js';
@@ -9,7 +9,8 @@ import pkg from './package.json' with { type: 'json' };
 
 const token = process.env.DISCORD_TOKEN;
 
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildInvites],
@@ -28,10 +29,19 @@ client.commands = new Collection();
 
 async function loadCommands() {
 	const foldersPath = path.join(__dirname, 'commands');
+
+	if (!fs.existsSync(foldersPath)) {
+		logger.warn(`Commands directory not found at: ${foldersPath}`);
+		return;
+	}
+
 	const commandFolders = fs.readdirSync(foldersPath);
 
 	for (const folder of commandFolders) {
 		const commandsPath = path.join(foldersPath, folder);
+
+		if (!fs.statSync(commandsPath).isDirectory()) continue;
+
 		const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
 
 		for (const file of commandFiles) {
@@ -53,6 +63,12 @@ async function loadCommands() {
 
 async function loadEvents() {
 	const eventsPath = path.join(__dirname, 'events');
+
+	if (!fs.existsSync(eventsPath)) {
+		logger.warn(`Events directory not found at: ${eventsPath}`);
+		return;
+	}
+
 	const eventFiles = fs.readdirSync(eventsPath).filter((file) => file.endsWith('.js'));
 
 	for (const file of eventFiles) {

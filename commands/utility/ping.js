@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize } from 'discord.js';
 import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
+import { emojis } from '../../utils/emoji.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -24,7 +25,7 @@ export default {
 			});
 		}
 
-		const loadingText = await t(guildId, 'ping_loading');
+		const loadingText = await t(guildId, 'ping_loading', { emoji: emojis.loader });
 		const init = new ContainerBuilder()
 			.setAccentColor(accentColor)
 			.addTextDisplayComponents(textDisplay => textDisplay.setContent(loadingText));
@@ -38,7 +39,7 @@ export default {
 		const messageLatency = sent.createdTimestamp - interaction.createdTimestamp;
 		const apiLatency = interaction.client.ws.ping;
 
-		const pongHeader = await t(guildId, 'ping_pong');
+		const pongHeader = await t(guildId, 'ping_pong', { emoji: emojis.gauge });
 		const latencyMetrics = await t(guildId, 'ping_latency_metrics', {
 			msgLatency: messageLatency.toString(),
 			apiLatency: apiLatency.toString(),

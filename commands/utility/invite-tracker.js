@@ -3,6 +3,7 @@ import { getRecentInviteRecords } from '../../utils/inviteTracker.js';
 import logger from '../../utils/logger.js';
 import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
+import { emojis } from '../../utils/emoji.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -12,7 +13,7 @@ function toUnix(dateLike) {
 }
 
 function boolBadge(value) {
-	return value ? '<:check:1526217602010185959>' : '<:x_:1526217756926808174>';
+	return value ? emojis.check : emojis.x_;
 }
 
 export default {
@@ -54,7 +55,7 @@ export default {
 		}
 
 		if (!latest.length) {
-			const emptyTitle = await t(guildId, 'invites_empty_title');
+			const emptyTitle = await t(guildId, 'invites_empty_title', { emoji: emojis.usersearch });
 			const emptySubtitle = await t(guildId, 'invites_empty_subtitle');
 
 			const empty = new ContainerBuilder()
@@ -79,7 +80,7 @@ export default {
 			.addTextDisplayComponents(async textDisplay =>
 				textDisplay.setContent(
 					[
-						await t(guildId, 'invites_title'),
+						await t(guildId, 'invites_title', { emoji: emojis.usersearch }),
 						resolvedSubtitle,
 					].join('\n'),
 				),
@@ -99,9 +100,9 @@ export default {
 			const usesDisplay = `\`${record.uses}\` / \`${record.maxUses === 0 || record.maxUses == null ? '∞' : record.maxUses}\``;
 
 			const joinedTranslated = await t(guildId, 'invites_record_joined', { joinedLine });
-			const inviteInfoTranslated = await t(guildId, 'invites_record_invite_info', { code: record.inviteCode, link: record.inviteLink });
+			const inviteInfoTranslated = await t(guildId, 'invites_record_invite_info', { emoji: emojis.userplus, code: record.inviteCode, link: record.inviteLink });
 			const invitedByTranslated = await t(guildId, 'invites_record_invited_by', { inviterId: record.inviterId });
-			const channelTranslated = await t(guildId, 'invites_record_channel', { channelId: record.channelId });
+			const channelTranslated = await t(guildId, 'invites_record_channel', { emoji: emojis.useredit, channelId: record.channelId });
 			const metaTranslated = await t(guildId, 'invites_record_meta', {
 				usesDisplay,
 				temporary: boolBadge(record.temporary),
@@ -111,7 +112,7 @@ export default {
 			container.addTextDisplayComponents(textDisplay =>
 				textDisplay.setContent(
 					[
-						`<:user:1526207642622759134> **<@${record.memberId}>** \`${record.memberId}\``,
+						`${emojis.user} **<@${record.memberId}>** \`${record.memberId}\``,
 						`> ${joinedTranslated}`,
 						'',
 						inviteInfoTranslated,

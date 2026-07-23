@@ -16,7 +16,7 @@ When generating code, modifying files, or answering questions in this repository
 * **Runtime:** Node.js
 * **Framework:** `discord.js` (Latest, utilizing **Components V2** API)
 * **Database:** MongoDB via `mongoose` — all persistent data is scoped **per guild (server)**
-* **Module System:** CommonJS (`require` / `module.exports`) — **DO NOT** use ESM (`import`/`export`).
+* **Module System:** Use ESM (no require).
 * **Package Manager:** `pnpm` ONLY — **DO NOT** use `npm`, `yarn`, or `bun`.
 
 ---

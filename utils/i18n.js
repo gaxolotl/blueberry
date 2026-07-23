@@ -1,4 +1,5 @@
 import logger from './logger.js';
+import { emojis } from './emoji.js';
 
 let messagesModule = null;
 
@@ -59,7 +60,7 @@ async function t(guildId, key, params = {}) {
  * @returns {Promise<string>} The fully combined localized error string.
  */
 async function tError(guildId, key, params = {}) {
-	const prefix = await t(guildId, 'error_prefix');
+	const prefix = await t(guildId, 'error_prefix', { emoji: emojis.x_ });
 	const body = await t(guildId, key, params);
 
 	return `${prefix} ${body}`;

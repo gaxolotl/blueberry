@@ -3,6 +3,7 @@ import Guild from '../models/Guild.js';
 import config from '../config.js';
 import logger from './logger.js';
 import { t } from './i18n.js';
+import { emojis } from './emoji.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const CONFIG_PREFIX = 'gcfg';
@@ -34,7 +35,7 @@ async function buildConfigHomeContainer(guildConfig) {
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## <:monitorcog:1527035219109085234> ${title}`))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${emojis.monitorcog} ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
@@ -44,7 +45,7 @@ async function buildConfigHomeContainer(guildConfig) {
 					.setCustomId(`${CONFIG_PREFIX}:nav`)
 					.setPlaceholder(placeholder)
 					.addOptions([
-						{ label: langLabel, description: langDesc, value: 'language', emoji: '<:folders:1527035124632522772>' },
+						{ label: langLabel, description: langDesc, value: 'language', emoji: emojis.folders },
 					]),
 			),
 		);
@@ -73,7 +74,7 @@ async function buildConfigLangContainer(guildConfig) {
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## <:folders:1527035124632522772> ${title}`))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${emojis.folders} ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
 		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
@@ -83,7 +84,7 @@ async function buildConfigLangContainer(guildConfig) {
 				new ButtonBuilder()
 					.setCustomId(`${CONFIG_PREFIX}:home`)
 					.setLabel(backBtn)
-					.setEmoji({ name: 'chevronleft', id: '1527044793891295402' })
+					.setEmoji(emojis.chevronleft)
 					.setStyle(ButtonStyle.Secondary),
 			),
 		);
@@ -116,6 +117,7 @@ async function handleConfigComponent(interaction, guildConfig) {
 
 		const confirmationText = await t(interaction.guildId, 'lang_updated', {
 			language: newLang.toUpperCase(),
+			emoji: emojis.check,
 		});
 
 		await interaction.update({ components: [await buildConfigLangContainer(guildConfig)] });
@@ -149,7 +151,7 @@ async function startConfigSession(interaction) {
 		catch (error) {
 			logger.error('Failed to handle guild config interaction:', error);
 			const errorMsg = await t(interaction.guildId, 'error_config_failed');
-			const errorContainer = buildTextContainer(`<:x_:1526217756926808174> **Error:** ${errorMsg}`, 0xFF0000);
+			const errorContainer = buildTextContainer(`${emojis.x_} **Error:** ${errorMsg}`, 0xFF0000);
 			if (i.deferred || i.replied) {
 				await i.followUp({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral }).catch(() => null);
 			}

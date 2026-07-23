@@ -7,6 +7,7 @@ import sizeOfImport from 'image-size';
 import logger from '../../utils/logger.js';
 import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
+import { emojis } from '../../utils/emoji.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const sizeOf = sizeOfImport.imageSize ?? sizeOfImport;
@@ -352,7 +353,7 @@ export default {
 				.addTextDisplayComponents(textDisplay =>
 					textDisplay.setContent(
 						[
-							t(guildId, 'imagetext_success_title'),
+							t(guildId, 'imagetext_success_title', { emoji: emojis.fileimage }),
 							t(guildId, 'imagetext_success_subtitle'),
 						].join('\n'),
 					),
@@ -364,13 +365,13 @@ export default {
 					textDisplay.setContent(
 						[
 							await t(guildId, 'imagetext_details_header'),
-							await t(guildId, 'imagetext_details_text', { text: escapeXml(text) }),
-							await t(guildId, 'imagetext_details_pos', { hPos: hPositionDisplay, vPos: vPositionDisplay }),
-							await t(guildId, 'imagetext_details_size', { size: fontSize }),
-							await t(guildId, 'imagetext_details_color', { color: normalizeHex(color) }),
-							await t(guildId, 'imagetext_details_font', { font: fontAttachment ? `\`${fontAttachment.name}\`` : await t(guildId, 'term_default') }),
-							await t(guildId, 'imagetext_details_stroke', { stroke: strokeDetails }),
-							await t(guildId, 'imagetext_details_style', { style: stylingString }),
+							await t(guildId, 'imagetext_details_text', { emoji: emojis.pencil, text: escapeXml(text) }),
+							await t(guildId, 'imagetext_details_pos', { emoji: emojis.move, hPos: hPositionDisplay, vPos: vPositionDisplay }),
+							await t(guildId, 'imagetext_details_size', { emoji: emojis.scaling, size: fontSize }),
+							await t(guildId, 'imagetext_details_color', { emoji: emojis.palette, color: normalizeHex(color) }),
+							await t(guildId, 'imagetext_details_font', { emoji: emojis.filetype, font: fontAttachment ? `\`${fontAttachment.name}\`` : await t(guildId, 'term_default') }),
+							await t(guildId, 'imagetext_details_stroke', { emoji: emojis.strokeoutline, stroke: strokeDetails }),
+							await t(guildId, 'imagetext_details_style', { emoji: emojis.pentool, style: stylingString }),
 						].join('\n'),
 					),
 				)
@@ -400,7 +401,7 @@ export default {
 				.addTextDisplayComponents(async textDisplay =>
 					textDisplay.setContent(
 						[
-							`## <:x_:1526217756926808174> ${await t(guildId, 'error_unable_to_render')}`,
+							`## ${emojis.x_} ${await t(guildId, 'error_unable_to_render')}`,
 							`-# ${errorText}`,
 						].join('\n'),
 					),

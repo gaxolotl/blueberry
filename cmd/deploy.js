@@ -1,26 +1,28 @@
 import { REST, Routes } from 'discord.js';
-import { clientId, guildId } from '../config.js';
+import config from '../config.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import logger from '../utils/logger.js';
 
+const clientId = config.clientId;
+const guildId = config.guildId;
 const commands = [];
 const seenNames = new Set();
 
-// Grab all the command folders from the commands directory you created earlier
 const foldersPath = path.join(import.meta.dirname, '../commands');
 const commandFolders = fs.readdirSync(foldersPath).filter((f) =>
 	fs.statSync(path.join(foldersPath, f)).isDirectory(),
 );
 
 for (const folder of commandFolders) {
-	// Grab all the command files from the commands directory you created earlier
 	const commandsPath = path.join(foldersPath, folder);
 	const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
-	// Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
+
 	for (const file of commandFiles) {
 		const filePath = path.join(commandsPath, file);
-		const command = require(filePath);
+		const command = (await import(pathToFileURL(filePath).href)).default;
+
 		if ('data' in command && 'execute' in command) {
 			const json = command.data.toJSON();
 
@@ -38,13 +40,10 @@ for (const folder of commandFolders) {
 	}
 }
 
-// Construct and prepare an instance of the REST module
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
 	try {
-		// Wipe any leftover guild-scoped commands first so they don't sit alongside
-		// the global ones (guild commands take priority in a guild and can look like duplicates).
 		if (guildId) {
 			logger.info(`Clearing guild-scoped commands for guild ${guildId}.`);
 			await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] });
@@ -53,7 +52,6 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 		logger.info(`Started refreshing ${commands.length} global application (/) commands.`);
 
-		// The put method fully refreshes all GLOBAL commands with the current set
 		const data = await rest.put(Routes.applicationCommands(clientId), { body: commands });
 
 		logger.success(`Successfully reloaded ${data.length} global application (/) commands.`);

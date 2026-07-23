@@ -3,6 +3,7 @@ import logger from '../../utils/logger.js';
 import { buildTextContainer, replyContainer, canManageTicket, getActiveTicketFromInteraction, closeTicket, startConfigSession, getTicketConfig, BUTTON_PREFIX } from '../../utils/ticketSystem.js';
 import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
+import { emojis } from '../../utils/emoji.js';
 
 const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 
@@ -153,8 +154,8 @@ async function handleTicketAction(interaction, subcommand) {
 		await thread.setArchived(false, 'Ticket reopened');
 
 		// Create a visible reopen alert message inside the ticket
-		const alertText = await t(guildId, 'ticket_reopened_notice', { userId: interaction.user.id });
-		const replyText = await t(guildId, 'ticket_reopened_reply');
+		const alertText = await t(guildId, 'ticket_reopened_notice', { emoji: emojis.check, userId: interaction.user.id });
+		const replyText = await t(guildId, 'ticket_reopened_reply', { emoji: emojis.check });
 
 		const reopenNotice = buildTextContainer(alertText);
 		await thread.send({
@@ -180,7 +181,7 @@ async function handleTicketAction(interaction, subcommand) {
 			await ticket.save();
 		}
 
-		const successMsg = await t(guildId, 'ticket_member_added', { userId: member.id });
+		const successMsg = await t(guildId, 'ticket_member_added', { emoji: emojis.check, userId: member.id });
 		await replyContainer(interaction, buildTextContainer(successMsg));
 		break;
 	}
@@ -202,7 +203,7 @@ async function handleTicketAction(interaction, subcommand) {
 		ticket.participants = ticket.participants.filter(id => id !== member.id);
 		await ticket.save();
 
-		const successMsg = await t(guildId, 'ticket_member_removed', { userId: member.id });
+		const successMsg = await t(guildId, 'ticket_member_removed', { emoji: emojis.check, userId: member.id });
 		await replyContainer(interaction, buildTextContainer(successMsg));
 		break;
 	}
@@ -216,7 +217,7 @@ async function handleTicketAction(interaction, subcommand) {
 		const name = interaction.options.getString('name');
 		await interaction.channel.setName(name);
 
-		const successMsg = await t(guildId, 'ticket_renamed', { name });
+		const successMsg = await t(guildId, 'ticket_renamed', { emoji: emojis.check, name });
 		await replyContainer(interaction, buildTextContainer(successMsg));
 		break;
 	}
@@ -247,14 +248,14 @@ async function handleTicketAction(interaction, subcommand) {
 				if (welcomeMsg) {
 					const displayClaimed = ticket.claimedBy ? `<@${ticket.claimedBy}>` : await t(guildId, 'term_no_one');
 
-					const title = await t(guildId, 'ticket_welcome_title', { category: ticket.categoryLabel });
+					const title = await t(guildId, 'ticket_welcome_title', { emoji: emojis.ticket, category: ticket.categoryLabel });
 					const body = await t(guildId, 'ticket_welcome_body');
 					const footer = await t(guildId, 'ticket_welcome_footer');
 
-					const openerLine = await t(guildId, 'ticket_welcome_opener', { openerId: ticket.openerId });
-					const categoryLine = await t(guildId, 'ticket_welcome_category', { category: ticket.categoryLabel });
-					const idLine = await t(guildId, 'ticket_welcome_id', { threadId: ticket.threadId });
-					const claimedLine = await t(guildId, 'ticket_welcome_claimed', { claimer: displayClaimed });
+					const openerLine = await t(guildId, 'ticket_welcome_opener', { emoji: emojis.user, openerId: ticket.openerId });
+					const categoryLine = await t(guildId, 'ticket_welcome_category', { emoji: emojis.folders, category: ticket.categoryLabel });
+					const idLine = await t(guildId, 'ticket_welcome_id', { emoji: emojis.hash, threadId: ticket.threadId });
+					const claimedLine = await t(guildId, 'ticket_welcome_claimed', { emoji: emojis.shield, claimer: displayClaimed });
 					const buttonText = await t(guildId, 'ticket_btn_close');
 
 					const updatedContainer = new ContainerBuilder()
@@ -289,8 +290,8 @@ async function handleTicketAction(interaction, subcommand) {
 		}
 
 		if (isUnclaiming) {
-			const alertMsg = await t(guildId, 'ticket_unclaimed_notice', { userId: interaction.user.id });
-			const replyMsg = await t(guildId, 'ticket_unclaimed_reply');
+			const alertMsg = await t(guildId, 'ticket_unclaimed_notice', { emoji: emojis.x_, userId: interaction.user.id });
+			const replyMsg = await t(guildId, 'ticket_unclaimed_reply', { emoji: emojis.check });
 
 			await interaction.channel.send({
 				components: [buildTextContainer(alertMsg)],
@@ -299,8 +300,8 @@ async function handleTicketAction(interaction, subcommand) {
 			await replyContainer(interaction, buildTextContainer(replyMsg));
 		}
 		else {
-			const alertMsg = await t(guildId, 'ticket_claimed_notice', { userId: interaction.user.id });
-			const replyMsg = await t(guildId, 'ticket_claimed_reply');
+			const alertMsg = await t(guildId, 'ticket_claimed_notice', { emoji: emojis.check, userId: interaction.user.id });
+			const replyMsg = await t(guildId, 'ticket_claimed_reply', { emoji: emojis.check });
 
 			await interaction.channel.send({
 				components: [buildTextContainer(alertMsg)],

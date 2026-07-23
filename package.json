@@ -9,6 +9,7 @@
     "dev": "node --env-file=.env --trace-warnings index.js",
     "deploy": "node --env-file=.env cmd/deploy.js",
     "deploy-guild": "node --env-file=.env cmd/deploy-guild.js",
+    "emoji": "node --env-file=.env cmd/emoji-sync.js",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:i18n": "pnpm paraglide-js compile --project ./project.inlang --outdir ./paraglide"
