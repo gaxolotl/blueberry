@@ -10,6 +10,8 @@ When generating code, modifying files, or answering questions in this repository
 * Red X mark - <:x_:1526217756926808174>
 * Checkmark - <:check:1526217602010185959>
 
+All custom emojis are centralized in `utils/emoji.js` and exported as an `emojis` object. **Never hardcode raw emoji strings** — always import from the util, e.g. `import { emojis } from '../utils/emoji.js'` and use `emojis.check`, `emojis.x_`, etc.
+
 ## 1. Project Overview & Tech Stack
 
 * **Bot Name:** Blueberry
