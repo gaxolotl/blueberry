@@ -1,11 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, RoleSelectMenuBuilder, SeparatorSpacingSize, StringSelectMenuBuilder } from 'discord.js';
 import Guild from '../models/Guild.js';
-import config from '../config.js';
 import logger from './logger.js';
 import { t } from './i18n.js';
 import { emojis } from './emoji.js';
+import { getAccentColor, getErrorColor } from './color.js';
 
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const CONFIG_PREFIX = 'gcfg';
 
 async function getGuildConfig(guildId) {
@@ -16,7 +15,8 @@ async function getGuildConfig(guildId) {
 	return guildConfig;
 }
 
-function buildTextContainer(content, color = accentColor) {
+async function buildTextContainer(content, guildId, color = null) {
+	if (color === null) color = await getAccentColor(guildId);
 	return new ContainerBuilder()
 		.setAccentColor(color)
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(content));
@@ -24,6 +24,7 @@ function buildTextContainer(content, color = accentColor) {
 
 async function buildConfigHomeContainer(guildConfig) {
 	const guildId = guildConfig.guildId;
+	const color = await getAccentColor(guildId);
 
 	// Resolve all strings first
 	const currentLangDisplay = guildConfig.language === 'bg' ? '🇧🇬 Bulgarian (bg)' : '🇬🇧 English (en)';
@@ -36,7 +37,7 @@ async function buildConfigHomeContainer(guildConfig) {
 	const rolesDesc = await t(guildId, 'config_home_roles_desc');
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(color)
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${emojis.monitorcog} ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
@@ -56,6 +57,7 @@ async function buildConfigHomeContainer(guildConfig) {
 
 async function buildConfigLangContainer(guildConfig) {
 	const guildId = guildConfig.guildId;
+	const color = await getAccentColor(guildId);
 
 	// Resolve all strings first
 	const title = await t(guildId, 'config_lang_title');
@@ -76,7 +78,7 @@ async function buildConfigLangContainer(guildConfig) {
 		]);
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(color)
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${emojis.folders} ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
@@ -95,6 +97,7 @@ async function buildConfigLangContainer(guildConfig) {
 
 async function buildConfigRolesContainer(guildConfig) {
 	const guildId = guildConfig.guildId;
+	const color = await getAccentColor(guildId);
 
 	const title = await t(guildId, 'config_roles_title');
 	const body = await t(guildId, 'config_roles_body');
@@ -112,7 +115,7 @@ async function buildConfigRolesContainer(guildConfig) {
 	}
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(color)
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${emojis.shield} ${title}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
@@ -162,7 +165,7 @@ async function handleConfigComponent(interaction, guildConfig) {
 
 		await interaction.update({ components: [await buildConfigLangContainer(guildConfig)] });
 		await interaction.followUp({
-			components: [buildTextContainer(confirmationText)],
+			components: [await buildTextContainer(confirmationText, guildConfig.guildId)],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 		});
 	}
@@ -177,7 +180,7 @@ async function handleConfigComponent(interaction, guildConfig) {
 
 		await interaction.update({ components: [await buildConfigRolesContainer(guildConfig)] });
 		await interaction.followUp({
-			components: [buildTextContainer(confirmationText)],
+			components: [await buildTextContainer(confirmationText, guildConfig.guildId)],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 		});
 	}
@@ -205,8 +208,8 @@ async function startConfigSession(interaction) {
 		}
 		catch (error) {
 			logger.error('Failed to handle guild config interaction:', error);
-			const errorMsg = await t(interaction.guildId, 'error_config_failed');
-			const errorContainer = buildTextContainer(`${emojis.x_} **Error:** ${errorMsg}`, 0xFF0000);
+			const errorMsg = await t(i.guildId, 'error_config_failed');
+			const errorContainer = await buildTextContainer(`${emojis.x_} **Error:** ${errorMsg}`, i.guildId, await getErrorColor(i.guildId));
 			if (i.deferred || i.replied) {
 				await i.followUp({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral }).catch(() => null);
 			}
@@ -219,7 +222,7 @@ async function startConfigSession(interaction) {
 	collector.on('end', async () => {
 		const expiredMsg = await t(interaction.guildId, 'error_session_expired');
 		await interaction.editReply({
-			components: [buildTextContainer(`-# ${expiredMsg}`)],
+			components: [await buildTextContainer(`-# ${expiredMsg}`, interaction.guildId)],
 		}).catch(() => null);
 	});
 }

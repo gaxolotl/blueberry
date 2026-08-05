@@ -2,14 +2,12 @@ import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilde
 import logger from '../../utils/logger.js';
 import { startConfigSession } from '../../utils/guildConfig.js';
 import Guild from '../../models/Guild.js';
-import config from '../../config.js';
 import { tError } from '../../utils/i18n.js';
+import { getErrorColor } from '../../utils/color.js';
 
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
-
-function buildErrorContainer(content) {
+async function buildErrorContainer(guildId, content) {
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getErrorColor(guildId))
 		.addTextDisplayComponents(textDisplay => textDisplay.setContent(content));
 }
 
@@ -22,8 +20,9 @@ async function requireAdmin(interaction) {
 	const allowedIds = guildConfig?.manageRoleIds ?? [];
 	if (allowedIds.length > 0 && interaction.member.roles.cache.some(r => allowedIds.includes(r.id))) return true;
 
+	const errorMsg = await tError(interaction.guildId, 'error_no_manage_server_perms');
 	await interaction.reply({
-		components: [buildErrorContainer(tError(interaction.guildId, 'error_no_manage_server_perms'))],
+		components: [await buildErrorContainer(interaction.guildId, errorMsg)],
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 	});
 	return false;
@@ -31,8 +30,9 @@ async function requireAdmin(interaction) {
 
 async function requireGuild(interaction) {
 	if (!interaction.inGuild()) {
+		const errorMsg = await tError(interaction.guildId, 'error_not_in_guild');
 		await interaction.reply({
-			components: [buildErrorContainer(tError(interaction.guildId, 'error_not_in_guild'))],
+			components: [await buildErrorContainer(interaction.guildId, errorMsg)],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 		});
 		return false;
@@ -55,8 +55,9 @@ export default {
 		}
 		catch (error) {
 			logger.error('Failed to execute /config:', error);
+			const errorMsg = await tError(interaction.guildId, 'error_generic');
 			const errorReply = {
-				components: [buildErrorContainer(tError(interaction.guildId, 'error_generic'))],
+				components: [await buildErrorContainer(interaction.guildId, errorMsg)],
 				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 			};
 

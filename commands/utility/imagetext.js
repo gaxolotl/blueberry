@@ -5,11 +5,10 @@ import path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import sizeOfImport from 'image-size';
 import logger from '../../utils/logger.js';
-import config from '../../config.js';
+import { getAccentColor, getErrorColor } from '../../utils/color.js';
 import { t, tError } from '../../utils/i18n.js';
 import { emojis } from '../../utils/emoji.js';
 
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
 const sizeOf = sizeOfImport.imageSize ?? sizeOfImport;
 
 function escapeXml(value) {
@@ -348,7 +347,7 @@ export default {
 			// 4. Build output details panel using localization strings
 			const generatedAttachment = new AttachmentBuilder(outputBuffer, { name: 'overlay.png' });
 			const container = new ContainerBuilder()
-				.setAccentColor(accentColor)
+				.setAccentColor(await getAccentColor(guildId))
 				.setSpoiler(false)
 				.addTextDisplayComponents(textDisplay =>
 					textDisplay.setContent(
@@ -397,7 +396,7 @@ export default {
 			const errorText = await tError(guildId, rawErrorMsg, {}, true);
 
 			const errorContainer = new ContainerBuilder()
-				.setAccentColor(0xFF0000)
+				.setAccentColor(await getErrorColor(guildId))
 				.addTextDisplayComponents(async textDisplay =>
 					textDisplay.setContent(
 						[

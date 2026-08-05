@@ -1,9 +1,7 @@
 import { SlashCommandBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize } from 'discord.js';
-import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
 import { emojis } from '../../utils/emoji.js';
-
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+import { getAccentColor, getErrorColor } from '../../utils/color.js';
 
 export default {
 	data: new SlashCommandBuilder()
@@ -16,7 +14,7 @@ export default {
 		if (!interaction.inGuild()) {
 			const errorMsg = await tError(null, 'error_not_in_guild');
 			const guildOnly = new ContainerBuilder()
-				.setAccentColor(0xFF0000)
+				.setAccentColor(await getErrorColor(guildId))
 				.addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
 
 			return interaction.reply({
@@ -27,7 +25,7 @@ export default {
 
 		const loadingText = await t(guildId, 'ping_loading', { emoji: emojis.loader });
 		const init = new ContainerBuilder()
-			.setAccentColor(accentColor)
+			.setAccentColor(await getAccentColor(guildId))
 			.addTextDisplayComponents(textDisplay => textDisplay.setContent(loadingText));
 
 		await interaction.reply({
@@ -46,7 +44,7 @@ export default {
 		});
 
 		const ping = new ContainerBuilder()
-			.setAccentColor(accentColor)
+			.setAccentColor(await getAccentColor(guildId))
 			.addTextDisplayComponents(textDisplay => textDisplay.setContent(pongHeader))
 			.addSeparatorComponents(separator =>
 				separator.setSpacing(SeparatorSpacingSize.Small),

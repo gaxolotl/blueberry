@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize } from 'discord.js';
 import { t } from '../i18n.js';
-import { accentColor, BUTTON_PREFIX, CATEGORY_BUTTON_STYLES } from './constants.js';
+import { BUTTON_PREFIX, CATEGORY_BUTTON_STYLES } from './constants.js';
 import { updateTicketConfig } from './config.js';
+import { getAccentColor } from '../color.js';
 
 /**
  * @param {string | null | undefined} emoji
@@ -39,8 +40,10 @@ export async function buildPanelContainer(guildId, ticketConfig) {
 		categoryLines = await t(guildId, 'ticket_panel_category_none');
 	}
 
+	const color = await getAccentColor(guildId);
+
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(color)
 		.addTextDisplayComponents(textDisplay =>
 			textDisplay.setContent(
 				[
