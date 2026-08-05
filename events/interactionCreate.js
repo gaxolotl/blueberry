@@ -1,6 +1,6 @@
 import { Events, MessageFlags } from 'discord.js';
 import logger from '../utils/logger.js';
-import { handleTicketButton } from '../utils/ticketSystem.js';
+import { handleTicketButton } from '../utils/ticketSystem/index.js';
 
 export default {
 	name: Events.InteractionCreate,

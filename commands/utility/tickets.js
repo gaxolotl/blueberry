@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, SeparatorSpacingSize, ButtonStyle, ActionRowBuilder, ButtonBuilder } from 'discord.js';
 import logger from '../../utils/logger.js';
-import { buildTextContainer, replyContainer, canManageTicket, getActiveTicketFromInteraction, closeTicket, startConfigSession, getTicketConfig, BUTTON_PREFIX } from '../../utils/ticketSystem.js';
+import { buildTextContainer, replyContainer, canManageTicket, getActiveTicketFromInteraction, closeTicket, startConfigSession, getTicketConfig, BUTTON_PREFIX, setTicketPriority, setTicketNote, showTicketTranscript } from '../../utils/ticketSystem/index.js';
 import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
 import { emojis } from '../../utils/emoji.js';
@@ -89,6 +89,39 @@ export default {
 			sub
 				.setName('claim')
 				.setDescription('Claim or unclaim the current ticket'),
+		)
+		.addSubcommand(sub =>
+			sub
+				.setName('priority')
+				.setDescription('Set the priority of the current ticket')
+				.addStringOption(option =>
+					option
+						.setName('level')
+						.setDescription('Priority level')
+						.setRequired(true)
+						.addChoices(
+							{ name: 'Low', value: 'low' },
+							{ name: 'Medium', value: 'medium' },
+							{ name: 'High', value: 'high' },
+						),
+				),
+		)
+		.addSubcommand(sub =>
+			sub
+				.setName('note')
+				.setDescription('Set or clear an internal staff note on the current ticket')
+				.addStringOption(option =>
+					option
+						.setName('text')
+						.setDescription('Note text (leave empty to clear)')
+						.setRequired(false)
+						.setMaxLength(1000),
+				),
+		)
+		.addSubcommand(sub =>
+			sub
+				.setName('transcript')
+				.setDescription('View the saved transcript of the current ticket'),
 		),
 
 	async execute(interaction) {
@@ -309,6 +342,38 @@ async function handleTicketAction(interaction, subcommand) {
 			});
 			await replyContainer(interaction, buildTextContainer(replyMsg));
 		}
+		break;
+	}
+	case 'priority': {
+		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
+			const errMsg = await tError(guildId, 'ticket_err_no_priority_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			return;
+		}
+
+		const level = interaction.options.getString('level');
+		await setTicketPriority(interaction, ticket, level);
+		break;
+	}
+	case 'note': {
+		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
+			const errMsg = await tError(guildId, 'ticket_err_no_note_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			return;
+		}
+
+		const note = interaction.options.getString('text') || null;
+		await setTicketNote(interaction, ticket, note);
+		break;
+	}
+	case 'transcript': {
+		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
+			const errMsg = await tError(guildId, 'ticket_err_no_transcript_perm');
+			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			return;
+		}
+
+		await showTicketTranscript(interaction, ticket);
 		break;
 	}
 	default:

@@ -3,7 +3,7 @@ import js from '@eslint/js';
 export default [
 	js.configs.recommended,
 	{
-		ignores: ['assets/**'],
+		ignores: ['assets/**', '**/dist/**', 'paraglide/**'],
 	},
 	{
 		languageOptions: {

@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder } from 'discord.js';
 import logger from '../../utils/logger.js';
 import { startConfigSession } from '../../utils/guildConfig.js';
+import Guild from '../../models/Guild.js';
 import config from '../../config.js';
 import { tError } from '../../utils/i18n.js';
 
@@ -13,14 +14,19 @@ function buildErrorContainer(content) {
 }
 
 async function requireAdmin(interaction) {
-	if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
-		await interaction.reply({
-			components: [buildErrorContainer(tError(interaction.guildId, 'error_no_manage_server_perms'))],
-			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-		});
-		return false;
-	}
-	return true;
+	// Owner always passes
+	if (interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) return true;
+
+	// Check custom manage roles set via /config or dashboard
+	const guildConfig = await Guild.findOne({ guildId: interaction.guildId }, { manageRoleIds: 1 }).lean();
+	const allowedIds = guildConfig?.manageRoleIds ?? [];
+	if (allowedIds.length > 0 && interaction.member.roles.cache.some(r => allowedIds.includes(r.id))) return true;
+
+	await interaction.reply({
+		components: [buildErrorContainer(tError(interaction.guildId, 'error_no_manage_server_perms'))],
+		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+	});
+	return false;
 }
 
 async function requireGuild(interaction) {

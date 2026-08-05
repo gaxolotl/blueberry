@@ -5,14 +5,17 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file=.env index.js",
-    "dev": "node --env-file=.env --trace-warnings index.js",
+    "start": "concurrently -n bot,api,web -c blue,green,magenta \"pnpm run bot\" \"pnpm --filter @blueberry/api run start\" \"pnpm --filter @blueberry/web run start\"",
+    "dev": "concurrently -n bot,api,web -c blue,green,magenta \"pnpm run bot:dev\" \"pnpm --filter @blueberry/api run dev\" \"pnpm --filter @blueberry/web run dev\"",
+    "bot": "node --env-file=.env index.js",
+    "bot:dev": "node --env-file=.env --trace-warnings index.js",
     "deploy": "node --env-file=.env cmd/deploy.js",
     "deploy-guild": "node --env-file=.env cmd/deploy-guild.js",
     "emoji": "node --env-file=.env cmd/emoji-sync.js",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:i18n": "pnpm paraglide-js compile --project ./project.inlang --outdir ./paraglide"
+    "build:i18n": "pnpm paraglide-js compile --project ./project.inlang --outdir ./paraglide",
+    "dashboard": "concurrently -n api,web -c green,magenta \"pnpm --filter @blueberry/api run dev\" \"pnpm --filter @blueberry/web run dev\""
   },
   "keywords": [
     "bot",
@@ -33,6 +36,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@inlang/cli": "^3.1.15",
+    "concurrently": "^10.0.4",
     "eslint": "^10.6.0"
   }
 }

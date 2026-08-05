@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, RoleSelectMenuBuilder, SeparatorSpacingSize, StringSelectMenuBuilder } from 'discord.js';
 import Guild from '../models/Guild.js';
 import config from '../config.js';
 import logger from './logger.js';
@@ -32,6 +32,8 @@ async function buildConfigHomeContainer(guildConfig) {
 	const placeholder = await t(guildId, 'config_home_select_placeholder');
 	const langLabel = await t(guildId, 'config_home_lang_label');
 	const langDesc = await t(guildId, 'config_home_lang_desc');
+	const rolesLabel = await t(guildId, 'config_home_roles_label');
+	const rolesDesc = await t(guildId, 'config_home_roles_desc');
 
 	return new ContainerBuilder()
 		.setAccentColor(accentColor)
@@ -46,6 +48,7 @@ async function buildConfigHomeContainer(guildConfig) {
 					.setPlaceholder(placeholder)
 					.addOptions([
 						{ label: langLabel, description: langDesc, value: 'language', emoji: emojis.folders },
+						{ label: rolesLabel, description: rolesDesc, value: 'roles', emoji: emojis.shield },
 					]),
 			),
 		);
@@ -90,9 +93,46 @@ async function buildConfigLangContainer(guildConfig) {
 		);
 }
 
+async function buildConfigRolesContainer(guildConfig) {
+	const guildId = guildConfig.guildId;
+
+	const title = await t(guildId, 'config_roles_title');
+	const body = await t(guildId, 'config_roles_body');
+	const placeholder = await t(guildId, 'config_roles_select_placeholder');
+	const backBtn = await t(guildId, 'config_back_button');
+
+	const select = new RoleSelectMenuBuilder()
+		.setCustomId(`${CONFIG_PREFIX}:roles:set`)
+		.setPlaceholder(placeholder)
+		.setMinValues(0)
+		.setMaxValues(25);
+
+	if (guildConfig.manageRoleIds?.length) {
+		select.setDefaultRoles(guildConfig.manageRoleIds.slice(0, 25));
+	}
+
+	return new ContainerBuilder()
+		.setAccentColor(accentColor)
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${emojis.shield} ${title}`))
+		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(body))
+		.addActionRowComponents(new ActionRowBuilder().addComponents(select))
+		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
+		.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`${CONFIG_PREFIX}:home`)
+					.setLabel(backBtn)
+					.setEmoji(emojis.chevronleft)
+					.setStyle(ButtonStyle.Secondary),
+			),
+		);
+}
+
 async function renderConfigPage(page, guildConfig) {
 	switch (page) {
 	case 'language': return await buildConfigLangContainer(guildConfig);
+	case 'roles': return await buildConfigRolesContainer(guildConfig);
 	default: return await buildConfigHomeContainer(guildConfig);
 	}
 }
@@ -121,6 +161,21 @@ async function handleConfigComponent(interaction, guildConfig) {
 		});
 
 		await interaction.update({ components: [await buildConfigLangContainer(guildConfig)] });
+		await interaction.followUp({
+			components: [buildTextContainer(confirmationText)],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+		});
+	}
+
+	if (page === 'roles' && action === 'set') {
+		guildConfig.manageRoleIds = interaction.values;
+		await guildConfig.save();
+
+		const confirmationText = await t(interaction.guildId, 'config_roles_updated', {
+			emoji: emojis.check,
+		});
+
+		await interaction.update({ components: [await buildConfigRolesContainer(guildConfig)] });
 		await interaction.followUp({
 			components: [buildTextContainer(confirmationText)],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
