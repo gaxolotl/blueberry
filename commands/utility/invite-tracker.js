@@ -1,11 +1,9 @@
 import { SlashCommandBuilder, ContainerBuilder, SeparatorSpacingSize, MessageFlags } from 'discord.js';
 import { getRecentInviteRecords } from '../../utils/inviteTracker.js';
 import logger from '../../utils/logger.js';
-import config from '../../config.js';
 import { t, tError } from '../../utils/i18n.js';
 import { emojis } from '../../utils/emoji.js';
-
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+import { getAccentColor, getErrorColor } from '../../utils/color.js';
 
 function toUnix(dateLike) {
 	const date = new Date(dateLike);
@@ -27,7 +25,7 @@ export default {
 		if (!interaction.inGuild()) {
 			const errorMsg = await tError(null, 'error_not_in_guild');
 			const guildOnly = new ContainerBuilder()
-				.setAccentColor(0xFF0000)
+				.setAccentColor(await getErrorColor(guildId))
 				.addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
 
 			return interaction.reply({
@@ -45,7 +43,7 @@ export default {
 
 			const errorMsg = await tError(guildId, 'error_fetching_invites');
 			const errorContainer = new ContainerBuilder()
-				.setAccentColor(0xFF0000)
+				.setAccentColor(await getErrorColor(guildId))
 				.addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
 
 			return interaction.reply({
@@ -59,7 +57,7 @@ export default {
 			const emptySubtitle = await t(guildId, 'invites_empty_subtitle');
 
 			const empty = new ContainerBuilder()
-				.setAccentColor(accentColor)
+				.setAccentColor(await getAccentColor(guildId))
 				.addTextDisplayComponents(textDisplay =>
 					textDisplay.setContent([emptyTitle, emptySubtitle].join('\n')),
 				);
@@ -76,7 +74,7 @@ export default {
 		const resolvedSubtitle = await t(guildId, subtitleKey, { count: countStr });
 
 		const container = new ContainerBuilder()
-			.setAccentColor(accentColor)
+			.setAccentColor(await getAccentColor(guildId))
 			.addTextDisplayComponents(async textDisplay =>
 				textDisplay.setContent(
 					[

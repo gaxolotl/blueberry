@@ -1,16 +1,14 @@
-import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, SeparatorSpacingSize, ButtonStyle, ActionRowBuilder, ButtonBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import logger from '../../utils/logger.js';
-import { buildTextContainer, replyContainer, canManageTicket, getActiveTicketFromInteraction, closeTicket, startConfigSession, getTicketConfig, BUTTON_PREFIX, setTicketPriority, setTicketNote, showTicketTranscript } from '../../utils/ticketSystem/index.js';
-import config from '../../config.js';
+import { buildTextContainer, buildThreadWelcomeContainer, replyContainer, canManageTicket, getActiveTicketFromInteraction, closeTicket, startConfigSession, getTicketConfig, setTicketPriority, setTicketNote, showTicketTranscript } from '../../utils/ticketSystem/index.js';
 import { t, tError } from '../../utils/i18n.js';
 import { emojis } from '../../utils/emoji.js';
-
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+import { getErrorColor } from '../../utils/color.js';
 
 async function requireAdmin(interaction) {
 	if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
 		const errMsg = await tError(interaction.guildId, 'ticket_err_need_manage_server');
-		await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+		await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(interaction.guildId)));
 		return false;
 	}
 	return true;
@@ -19,7 +17,7 @@ async function requireAdmin(interaction) {
 async function requireGuild(interaction) {
 	if (!interaction.inGuild()) {
 		const errMsg = await tError(null, 'error_not_in_guild');
-		await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+		await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(null)));
 		return false;
 	}
 	return true;
@@ -141,7 +139,7 @@ export default {
 		catch (error) {
 			logger.error(`Failed to execute tickets ${subcommand}:`, error);
 			const errMsg = await tError(interaction.guildId, 'ticket_err_command_failed');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(interaction.guildId)));
 		}
 	},
 };
@@ -155,7 +153,7 @@ async function handleTicketAction(interaction, subcommand) {
 
 	if (subcommand !== 'reopen' && ticket.status === 'closed') {
 		const errMsg = await tError(guildId, 'ticket_err_closed');
-		await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+		await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 		return;
 	}
 
@@ -168,13 +166,13 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'reopen': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_reopen_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
 		if (ticket.status === 'open') {
 			const errMsg = await tError(guildId, 'ticket_err_already_open');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -202,7 +200,7 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'add': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_add_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -221,14 +219,14 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'remove': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_remove_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
 		const member = interaction.options.getUser('member');
 		if (member.id === ticket.openerId) {
 			const errMsg = await tError(guildId, 'ticket_err_cannot_remove_opener');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -243,7 +241,7 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'rename': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_rename_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -257,7 +255,7 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'claim': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_claim_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -279,37 +277,7 @@ async function handleTicketAction(interaction, subcommand) {
 			try {
 				const welcomeMsg = await interaction.channel.messages.fetch(ticket.welcomeMessageId);
 				if (welcomeMsg) {
-					const displayClaimed = ticket.claimedBy ? `<@${ticket.claimedBy}>` : await t(guildId, 'term_no_one');
-
-					const title = await t(guildId, 'ticket_welcome_title', { emoji: emojis.ticket, category: ticket.categoryLabel });
-					const body = await t(guildId, 'ticket_welcome_body');
-					const footer = await t(guildId, 'ticket_welcome_footer');
-
-					const openerLine = await t(guildId, 'ticket_welcome_opener', { emoji: emojis.user, openerId: ticket.openerId });
-					const categoryLine = await t(guildId, 'ticket_welcome_category', { emoji: emojis.folders, category: ticket.categoryLabel });
-					const idLine = await t(guildId, 'ticket_welcome_id', { emoji: emojis.hash, threadId: ticket.threadId });
-					const claimedLine = await t(guildId, 'ticket_welcome_claimed', { emoji: emojis.shield, claimer: displayClaimed });
-					const buttonText = await t(guildId, 'ticket_btn_close');
-
-					const updatedContainer = new ContainerBuilder()
-						.setAccentColor(accentColor)
-						.addTextDisplayComponents(textDisplay =>
-							textDisplay.setContent([title, body, footer].join('\n')),
-						)
-						.addSeparatorComponents(separator =>
-							separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-						)
-						.addTextDisplayComponents(textDisplay =>
-							textDisplay.setContent([openerLine, categoryLine, idLine, claimedLine].join('\n')),
-						)
-						.addActionRowComponents(
-							new ActionRowBuilder().addComponents(
-								new ButtonBuilder()
-									.setCustomId(`${BUTTON_PREFIX}:close:${ticket.threadId}`)
-									.setLabel(buttonText)
-									.setStyle(ButtonStyle.Danger),
-							),
-						);
+					const updatedContainer = await buildThreadWelcomeContainer(guildId, ticket);
 
 					await welcomeMsg.edit({
 						components: [updatedContainer],
@@ -347,7 +315,7 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'priority': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_priority_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -358,7 +326,7 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'note': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_note_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 
@@ -369,7 +337,7 @@ async function handleTicketAction(interaction, subcommand) {
 	case 'transcript': {
 		if (!canManageTicket(interaction.member, ticketConfig, ticket)) {
 			const errMsg = await tError(guildId, 'ticket_err_no_transcript_perm');
-			await replyContainer(interaction, buildTextContainer(errMsg, 0xFF0000));
+			await replyContainer(interaction, buildTextContainer(errMsg, await getErrorColor(guildId)));
 			return;
 		}
 

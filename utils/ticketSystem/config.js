@@ -24,7 +24,7 @@ export async function updateTicketConfig(guildId, updates) {
 	return TicketConfig.findOneAndUpdate(
 		{ guildId },
 		{ $set: updates },
-		{ upsert: true, new: true, setDefaultsOnInsert: true },
+		{ upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
 	);
 }
 
@@ -50,7 +50,10 @@ export async function replyContainer(interaction, container) {
 	};
 
 	try {
-		if (interaction.replied || interaction.deferred) {
+		if (interaction.deferred && !interaction.replied) {
+			await interaction.editReply(options);
+		}
+		else if (interaction.replied) {
 			await interaction.followUp(options);
 		}
 		else {

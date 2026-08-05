@@ -54,8 +54,15 @@ export function AuthProvider({ children }) {
 		setUser(null);
 	}
 
+	function deleteAccount() {
+		localStorage.removeItem('bb_token');
+		localStorage.removeItem('bb_device_prefs');
+		setToken(null);
+		setUser(null);
+	}
+
 	return (
-		<AuthContext.Provider value={{ user, token, login, logout, loading }}>
+		<AuthContext.Provider value={{ user, token, login, logout, deleteAccount, loading }}>
 			{children}
 		</AuthContext.Provider>
 	);

@@ -11,6 +11,26 @@ export const SETTING_CATEGORIES = [
 		endpoint: guildEndpoint,
 		fields: [
 			{
+				type: 'color',
+				key: 'accentColor',
+				labelKey: 'settings.accentColor',
+				placeholderKey: 'settings.accentColorPlaceholder',
+				default: '#476797',
+				serialize: (v) => (/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(v))
+					? `#${String(v).replace(/^#/, '').toUpperCase()}`
+					: '#476797'),
+			},
+			{
+				type: 'color',
+				key: 'errorColor',
+				labelKey: 'settings.errorColor',
+				placeholderKey: 'settings.errorColorPlaceholder',
+				default: '#FF0000',
+				serialize: (v) => (/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(v))
+					? `#${String(v).replace(/^#/, '').toUpperCase()}`
+					: '#FF0000'),
+			},
+			{
 				type: 'select',
 				key: 'language',
 				labelKey: 'settings.language',
@@ -47,7 +67,7 @@ export const SETTING_CATEGORIES = [
 			},
 			{ type: 'number', key: 'maxOpenPerUser', labelKey: 'settings.maxOpenPerUser', min: 1, default: 1 },
 			{
-				type: 'text',
+				type: 'channel',
 				key: 'transcriptChannelId',
 				labelKey: 'settings.transcriptChannel',
 				placeholderKey: 'settings.channelIdPlaceholder',

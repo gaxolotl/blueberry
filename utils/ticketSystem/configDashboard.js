@@ -2,7 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder,
 import { t } from '../i18n.js';
 import { emojis } from '../emoji.js';
 import logger from '../logger.js';
-import { accentColor, CONFIG_PREFIX, checkEmoji, errorEmoji } from './constants.js';
+import { CONFIG_PREFIX, checkEmoji, errorEmoji } from './constants.js';
+import { getAccentColor, getErrorColor } from '../color.js';
 import { buildTextContainer, replyContainer, getTicketConfig, updateTicketConfig } from './config.js';
 import { sendTicketPanel, refreshTicketPanel } from './panel.js';
 
@@ -65,7 +66,7 @@ async function buildConfigHomeContainer(guildId, ticketConfig) {
 	const selectSectionDesc = await t(guildId, 'ticket_cfg_select_section_desc');
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${ticketCfgTitle}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
@@ -123,7 +124,7 @@ async function buildConfigChannelsContainer(guildId, ticketConfig) {
 	const termChannels = await t(guildId, 'term_channels');
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${emojis.folder} ${termChannels}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
@@ -193,7 +194,7 @@ async function buildConfigPanelContainer(guildId, ticketConfig) {
 	const channelPlaceholder = await t(guildId, 'ticket_cfg_select_channel_placeholder');
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${emojis.monitorcog} ${termPanel}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
@@ -238,7 +239,7 @@ async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 	const categoriesDesc = await t(guildId, 'ticket_cfg_panel_categories_desc');
 
 	const container = new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${emojis.folders} ${termCategories}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(categoriesDesc));
@@ -304,7 +305,7 @@ async function buildConfigRolesContainer(guildId, ticketConfig) {
 	const backRow = await buildBackRow(guildId);
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${emojis.shield} ${supportRolesTerm}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(
@@ -338,7 +339,7 @@ async function buildConfigLimitContainer(guildId, ticketConfig) {
 	const termTicketLimit = await t(guildId, 'term_ticket_limit');
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${emojis.infinity} ${termTicketLimit}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(ticketLimitDescription))
@@ -386,7 +387,7 @@ async function buildConfigAdvancedContainer(guildId, ticketConfig) {
 		})));
 
 	return new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guildId))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(`## ${emojis.settings} ${termAdvanced}`))
 		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
 		.addTextDisplayComponents(tMsg => tMsg.setContent(autoCloseDesc))
@@ -478,7 +479,7 @@ async function handlePanelTextModal(interaction, ticketConfig) {
 async function handleCategoryModal(interaction, ticketConfig, slot) {
 	if (slot - 1 > ticketConfig.categories.length) {
 		await interaction.reply({
-			components: [buildTextContainer(`${errorEmoji} **Error:** Set slot **${ticketConfig.categories.length + 1}** before configuring slot **${slot}**.`, 0xFF0000)],
+			components: [buildTextContainer(`${errorEmoji} **Error:** Set slot **${ticketConfig.categories.length + 1}** before configuring slot **${slot}**.`, await getErrorColor(interaction.guildId))],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 		});
 		return;
@@ -524,7 +525,7 @@ async function handleCategoryModal(interaction, ticketConfig, slot) {
 	const duplicate = ticketConfig.categories.find((category, index) => category.id === customId && index !== slot - 1);
 	if (duplicate) {
 		await submitted.reply({
-			components: [buildTextContainer(`${errorEmoji} **Error:** That category ID is already used by another slot.`, 0xFF0000)],
+			components: [buildTextContainer(`${errorEmoji} **Error:** That category ID is already used by another slot.`, await getErrorColor(submitted.guildId))],
 			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 		});
 		return;
@@ -617,7 +618,7 @@ async function handleConfigComponent(interaction, ticketConfig) {
 			}
 			catch (error) {
 				await interaction.followUp({
-					components: [buildTextContainer(`${errorEmoji} **Error:** ${error.message}`, 0xFF0000)],
+					components: [buildTextContainer(`${errorEmoji} **Error:** ${error.message}`, await getErrorColor(interaction.guildId))],
 					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 				});
 			}
@@ -641,7 +642,7 @@ async function handleConfigComponent(interaction, ticketConfig) {
 			}
 			catch (error) {
 				await interaction.followUp({
-					components: [buildTextContainer(`${errorEmoji} **Error:** ${error.message}`, 0xFF0000)],
+					components: [buildTextContainer(`${errorEmoji} **Error:** ${error.message}`, await getErrorColor(interaction.guildId))],
 					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
 				});
 			}
@@ -660,7 +661,7 @@ async function handleConfigComponent(interaction, ticketConfig) {
 
 		if (action === 'remove') {
 			if (slot - 1 >= ticketConfig.categories.length) {
-				await replyContainer(interaction, buildTextContainer(`${errorEmoji} **Error:** That category slot is already empty.`, 0xFF0000));
+				await replyContainer(interaction, buildTextContainer(`${errorEmoji} **Error:** That category slot is already empty.`, await getErrorColor(interaction.guildId)));
 				return;
 			}
 			ticketConfig.categories.splice(slot - 1, 1);
@@ -750,7 +751,7 @@ export async function startConfigSession(interaction) {
 		catch (error) {
 			logger.error('Failed to handle ticket config interaction:', error);
 			const errSomethingWrong = await t(interaction.guildId, 'ticket_err_something_wrong');
-			const errorContainer = buildTextContainer(`${errorEmoji} **Error:** ${errSomethingWrong}`, 0xFF0000);
+			const errorContainer = buildTextContainer(`${errorEmoji} **Error:** ${errSomethingWrong}`, await getErrorColor(interaction.guildId));
 			if (i.deferred || i.replied) {
 				await i.followUp({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral }).catch(() => null);
 			}

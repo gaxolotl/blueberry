@@ -1,7 +1,5 @@
 import { SlashCommandBuilder, ContainerBuilder, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, MediaGalleryBuilder, FileBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
-import config from '../../config.js';
-
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+import { getAccentColor } from '../../utils/color.js';
 
 export default {
 	data: new SlashCommandBuilder()
@@ -119,7 +117,7 @@ export default {
 		// A second, differently-accented Container nested inside the top-level
 		// components array to show that containers can be stacked in one message.
 		const nestedContainer = new ContainerBuilder()
-			.setAccentColor(0x57f287)
+			.setAccentColor(await getAccentColor(interaction.guildId))
 			.setSpoiler(false)
 			.addTextDisplayComponents(
 				new TextDisplayBuilder().setContent('A **second Container**, its own accent color and border.'),
@@ -127,7 +125,7 @@ export default {
 
 		// ---- Assemble the primary Container --------------------------------------
 		const container = new ContainerBuilder()
-			.setAccentColor(accentColor)
+			.setAccentColor(await getAccentColor(interaction.guildId))
 			.setSpoiler(false)
 			.addTextDisplayComponents(heading)
 			.addSectionComponents(thumbnailSection, buttonSection)

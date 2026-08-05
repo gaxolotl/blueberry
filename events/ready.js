@@ -5,6 +5,7 @@ import { getTicketConfig } from '../utils/ticketSystem/config.js';
 import { syncAllGuilds } from '../utils/guildSync.js';
 import logger from '../utils/logger.js';
 import { runSync } from '../cmd/emoji-sync.js';
+import { schedulePatchNotePolling } from '../utils/patchNotes/tracker.js';
 
 export default {
 	name: Events.ClientReady,
@@ -31,6 +32,8 @@ export default {
 				logger.warn(`Unable to auto-close stale tickets for ${guild.name}: ${error.message}`);
 			}
 		}
+
+		schedulePatchNotePolling(client);
 
 		// Periodically auto-close stale tickets while the bot is running
 		setInterval(async () => {

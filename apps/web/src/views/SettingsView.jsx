@@ -6,11 +6,13 @@ import { SETTING_CATEGORIES } from '../utils/settingsRegistry.js';
 import { Loading, Error, Empty } from '../components/State.jsx';
 import SettingCategory from '../components/settings/SettingCategory.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useGuildResources } from '../hooks/useGuildResources.js';
 
 export default function SettingsView({ guildId }) {
 	const { t } = useI18n();
 	const settings = useGuildSettings(guildId);
 	const { showToast } = useToast();
+	const resources = useGuildResources(guildId);
 
 	useEffect(() => {
 		if (settings.savedAt) showToast(t('settings.saved'), 'success');
@@ -29,6 +31,7 @@ export default function SettingsView({ guildId }) {
 					category={category}
 					values={settings.values}
 					onChange={settings.update}
+					resources={resources}
 				/>
 			))}
 			<div className="form-actions form-actions-sticky">

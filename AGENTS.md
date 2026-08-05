@@ -72,18 +72,40 @@ Complete example of all of the available Components V2 features can be seen in `
 
 ### Core Styling Rules:
 1. Always import `ContainerBuilder` and `MessageFlags` from `discord.js`.
-2. Always pull the bot's accent color from `config.js` and parse it into an integer:
-   ```javascript
-   const config = require('../../config.js');
-   const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
-   ```
+2. Always fetch the bot's accent color with `getAccentColor(guildId)` from `utils/color.js`.
 3. Always attach `MessageFlags.IsComponentsV2` to the interaction reply or edit flags.
 4. Use custom emojis where appropriate to maintain a clean, polished UI.
+
+### Embed Colors (CRITICAL)
+
+Blueberry supports **per-guild custom colors** for both success and error panels. Colors are stored in MongoDB (per guild), so you **MUST** never hardcode hex colors like `0xFF0000` or `#FF0000` in panels/containers. Always use the color helpers from `utils/color.js`:
+
+```javascript
+import { getAccentColor, getErrorColor } from '../../utils/color.js';
+```
+
+| Function | When to use | Returns |
+| :--- | :--- | :--- |
+| `getAccentColor(guildId)` | Normal / success panels | The guild's accent color (falls back to `config.accentColor`) |
+| `getErrorColor(guildId)` | Error panels, permission errors, failures | The guild's error color (falls back to `config.errorColor`) |
+
+**Rules:**
+
+1. `getAccentColor()` and `getErrorColor()` are **async** — always `await` them:
+   ```javascript
+   const container = new ContainerBuilder()
+       .setAccentColor(await getAccentColor(guildId)) // ✅ Correct
+       .addTextDisplayComponents(textDisplay => textDisplay.setContent(content));
+   ```
+2. Both functions return a hex integer ready for `.setAccentColor()`.
+3. **Never** hardcode `0xFF0000`, `#FF0000`, `0x57f287`, or any raw hex in a `setAccentColor()` call — colors are user-configurable per guild.
+4. `guildId` must be a **defined** variable: use `interaction.guildId` in commands, `guild.id` in events, or a locally declared `const guildId = interaction.guildId;`. Never reference a bare `guildId` that isn't in scope (this has caused runtime `ReferenceError`s).
+5. If guild context is unavailable (e.g. DM), pass `null` — the functions return the config default.
 
 ### Standard Components V2 Reply Pattern:
 ```javascript
 const init = new ContainerBuilder()
-    .setAccentColor(accentColor)
+    .setAccentColor(await getAccentColor(guildId))
     .addTextDisplayComponents(textDisplay =>
         textDisplay.setContent('<:loader:1526193303098490960> Processing request...')
     );
@@ -188,9 +210,8 @@ When generating new files, use the following exact structures:
 ```javascript
 const { SlashCommandBuilder, ContainerBuilder, MessageFlags } = require('discord.js');
 const logger = require('../../utils/logger');
-const config = require('../../config.js');
-
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+const { getAccentColor, getErrorColor } = require('../../utils/color.js');
+const { t, tError } = require('../../utils/i18n.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -198,9 +219,11 @@ module.exports = {
         .setDescription('Clear description of what the command does.'),
 
     async execute(interaction) {
+        const guildId = interaction.guildId;
+
         try {
             const container = new ContainerBuilder()
-                .setAccentColor(accentColor)
+                .setAccentColor(await getAccentColor(guildId))
                 .addTextDisplayComponents(textDisplay =>
                     textDisplay.setContent('✨ **Success!** Your command executed cleanly.')
                 );
@@ -212,10 +235,11 @@ module.exports = {
         } catch (error) {
             logger.error(`Failed to execute ${interaction.commandName}:`, error);
             
+            const errorMsg = await tError(guildId, 'error_generic');
             const errorContainer = new ContainerBuilder()
-                .setAccentColor(0xFF0000) // Red accent for errors
+                .setAccentColor(await getErrorColor(guildId))
                 .addTextDisplayComponents(textDisplay =>
-                    textDisplay.setContent('<:x_:1526217756926808174> **Error:** Something went wrong while executing this command.')
+                    textDisplay.setContent(errorMsg)
                 );
 
             const replyOptions = {
@@ -302,9 +326,7 @@ blueberry/
 ```javascript
 const { SlashCommandBuilder, ContainerBuilder, MessageFlags } = require('discord.js');
 const { t, tError } = require('../../utils/i18n');
-const config = require('../../config.js');
-
-const accentColor = parseInt(config.accentColor.replace('#', ''), 16);
+const { getAccentColor, getErrorColor } = require('../../utils/color.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -321,7 +343,7 @@ module.exports = {
             });
 
             const container = new ContainerBuilder()
-                .setAccentColor(accentColor)
+                .setAccentColor(await getAccentColor(guildId))
                 .addTextDisplayComponents(textDisplay =>
                     textDisplay.setContent(statusMessage)
                 );
@@ -335,7 +357,7 @@ module.exports = {
             const errorMsg = await tError(guildId, 'error_status_failed');
             
             const errorContainer = new ContainerBuilder()
-                .setAccentColor(0xFF0000)
+                .setAccentColor(await getErrorColor(guildId))
                 .addTextDisplayComponents(textDisplay => textDisplay.setContent(errorMsg));
 
             await interaction.reply({
