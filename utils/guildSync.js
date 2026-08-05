@@ -12,7 +12,7 @@ export async function syncGuildInfo(guildId, name, icon) {
 		await Guild.findOneAndUpdate(
 			{ guildId },
 			{ $set: { name, icon } },
-			{ upsert: true, new: true, setDefaultsOnInsert: true },
+			{ upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
 		);
 	}
 	catch (error) {

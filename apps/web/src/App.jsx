@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Ticket, UserPlus, Settings, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Ticket, UserPlus, Settings, Loader2, Megaphone, Tags, ShieldCheck } from 'lucide-react';
 import { I18nProvider, useI18n } from './hooks/useI18n.jsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import ActivityBar from './components/ActivityBar.jsx';
@@ -10,13 +10,19 @@ import OverviewView from './views/OverviewView.jsx';
 import TicketsView from './views/TicketsView.jsx';
 import InvitesView from './views/InvitesView.jsx';
 import SettingsView from './views/SettingsView.jsx';
+import PatchNotesView from './views/PatchNotesView.jsx';
+import TicketAutomationView from './views/TicketAutomationView.jsx';
+import AccountPrivacyView from './views/AccountPrivacyView.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 
 const VIEWS = {
 	overview: { labelKey: 'nav.overview', icon: LayoutDashboard, component: OverviewView },
 	tickets: { labelKey: 'nav.tickets', icon: Ticket, component: TicketsView },
 	invites: { labelKey: 'nav.invites', icon: UserPlus, component: InvitesView },
+	patchNotes: { labelKey: 'nav.patchNotes', icon: Megaphone, component: PatchNotesView },
+	ticketAutomation: { labelKey: 'nav.ticketAutomation', icon: Tags, component: TicketAutomationView },
 	settings: { labelKey: 'nav.settings', icon: Settings, component: SettingsView },
+	account: { labelKey: 'nav.account', icon: ShieldCheck, component: AccountPrivacyView },
 };
 
 function LoginScreen() {
@@ -29,6 +35,7 @@ function LoginScreen() {
 				<button className="btn login-btn" onClick={login}>
 					Login with Discord
 				</button>
+				<p className="login-legal">By continuing, you agree to the <a href="/terms">Terms</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</p>
 			</div>
 		</div>
 	);
