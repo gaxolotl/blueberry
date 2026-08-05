@@ -5,13 +5,13 @@ import CategoryListField from './CategoryListField.jsx';
 
 const LIST_RENDERERS = { roleList: RoleListField, categoryList: CategoryListField };
 
-export default function SettingCategory({ category, values, onChange }) {
+export default function SettingCategory({ category, values, onChange, resources }) {
 	const { t } = useI18n();
 	const Icon = category.icon;
 	const renderField = (field) => {
 		const Renderer = LIST_RENDERERS[field.type] ?? SettingField;
 		const cb = (next) => onChange(field.key, next);
-		return <Renderer key={field.key} field={field} value={values[field.key]} onChange={cb} />;
+		return <Renderer key={field.key} field={field} value={values[field.key]} onChange={cb} resources={resources} />;
 	};
 	return (
 		<section className="panel">

@@ -1,15 +1,23 @@
 import { serve } from '@hono/node-server';
+import { randomBytes } from 'node:crypto';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import mongoose from 'mongoose';
 
+import { isValidHex } from '../../utils/color.js';
+import logger from '../../utils/logger.js';
 import Guild from '../../models/Guild.js';
 import Ticket from '../../models/Ticket.js';
 import TicketConfig from '../../models/TicketConfig.js';
 import InviteJoin from '../../models/InviteJoin.js';
 import Session from '../../models/Session.js';
 import { createSession, createAuthMiddleware, fetchManageableGuilds } from './auth.js';
-import { buildTranscriptText } from '../../utils/ticketSystem/features.js';
+import { buildTranscriptHtml } from '../../utils/ticketSystem/transcriptHtml.js';
+import PatchNoteConfig from '../../models/PatchNoteConfig.js';
+import PatchNote from '../../models/PatchNote.js';
+import { addPatchNoteSource, getPatchNoteLimits, removePatchNoteSource, updatePatchNoteSource } from '../../utils/patchNotes/config.js';
+import { parseGithubUrl, validateGithubToken } from '../../utils/patchNotes/fetcher.js';
+import { getTicketAutomationLimits, validateAutomationRules } from '../../utils/ticketSystem/autoCategorizer.js';
 
 const app = new Hono();
 
@@ -117,7 +125,7 @@ app.get('/api/guilds/:guildId', async (c) => {
 	return c.json(guild);
 });
 
-const GUILD_ALLOWED = ['language', 'manageRoleIds'];
+const GUILD_ALLOWED = ['language', 'manageRoleIds', 'accentColor', 'errorColor'];
 
 app.patch('/api/guilds/:guildId', async (c) => {
 	const session = c.get('session');
@@ -127,14 +135,20 @@ app.patch('/api/guilds/:guildId', async (c) => {
 	const body = await c.req.json();
 	const updates = {};
 	for (const key of GUILD_ALLOWED) {
-		if (body[key] !== undefined) updates[key] = body[key];
+		if (body[key] !== undefined) {
+			if ((key === 'accentColor' || key === 'errorColor') && !isValidHex(body[key])) {
+				return c.json({ error: `Invalid hex color for ${key}` }, 400);
+			}
+			updates[key] = body[key];
+		}
 	}
 
 	const guild = await Guild.findOneAndUpdate(
 		{ guildId },
 		{ $set: updates },
-		{ new: true, upsert: true, setDefaultsOnInsert: true },
+		{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
 	).lean();
+
 	return c.json(guild);
 });
 
@@ -149,6 +163,8 @@ const TICKET_CONFIG_ALLOWED = [
 	'autoCloseMinutes',
 	'requireCloseReason',
 	'defaultPriority',
+	'automationEnabled',
+	'automationRules',
 ];
 
 app.get('/api/guilds/:guildId/ticket-config', async (c) => {
@@ -159,9 +175,15 @@ app.get('/api/guilds/:guildId/ticket-config', async (c) => {
 	const config = await TicketConfig.findOneAndUpdate(
 		{ guildId },
 		{ $setOnInsert: { guildId } },
-		{ new: true, upsert: true, setDefaultsOnInsert: true },
+		{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
 	).lean();
-	return c.json(config);
+	return c.json({
+		...config,
+		automationEnabled: Boolean(config.automationEnabled),
+		automationRules: config.automationRules ?? [],
+		categories: config.categories ?? [],
+		automationLimits: getTicketAutomationLimits(),
+	});
 });
 
 app.patch('/api/guilds/:guildId/ticket-config', async (c) => {
@@ -174,13 +196,22 @@ app.patch('/api/guilds/:guildId/ticket-config', async (c) => {
 	for (const key of TICKET_CONFIG_ALLOWED) {
 		if (body[key] !== undefined) updates[key] = body[key];
 	}
+	if (updates.automationRules && !validateAutomationRules(updates.automationRules)) {
+		return c.json({ error: 'Invalid ticket automation rules' }, 400);
+	}
 
 	const config = await TicketConfig.findOneAndUpdate(
 		{ guildId },
 		{ $set: updates },
-		{ new: true, upsert: true, setDefaultsOnInsert: true },
+		{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
 	).lean();
-	return c.json(config);
+	return c.json({
+		...config,
+		automationEnabled: Boolean(config.automationEnabled),
+		automationRules: config.automationRules ?? [],
+		categories: config.categories ?? [],
+		automationLimits: getTicketAutomationLimits(),
+	});
 });
 
 // ---- Tickets ----
@@ -217,7 +248,117 @@ app.get('/api/guilds/:guildId/tickets/:threadId/transcript', async (c) => {
 	const ticket = await Ticket.findOne({ guildId, threadId: c.req.param('threadId') }).lean();
 	if (!ticket) return c.json({ error: 'Ticket not found' }, 404);
 
-	return c.json({ text: buildTranscriptText(ticket), filename: `transcript-${ticket.threadId}.txt` });
+	return c.json({ html: buildTranscriptHtml(ticket), filename: `transcript-${ticket.threadId}.html` });
+});
+
+app.get('/api/me/export', async (c) => {
+	const session = c.get('session');
+	const discordId = session.discordId;
+	const [sessions, tickets, inviteJoins] = await Promise.all([
+		Session.find({ discordId }, { token: 0, accessToken: 0, refreshToken: 0 }).lean(),
+		Ticket.find({
+			$or: [
+				{ openerId: discordId },
+				{ claimedBy: discordId },
+				{ closedBy: discordId },
+				{ participants: discordId },
+				{ 'transcript.authorId': discordId },
+			],
+		}).lean(),
+		InviteJoin.find({ $or: [{ memberId: discordId }, { inviterId: discordId }] }).lean(),
+	]);
+	const personalTickets = tickets.map(ticket => ({
+		guildId: ticket.guildId,
+		threadId: ticket.threadId,
+		categoryLabel: ticket.categoryLabel,
+		status: ticket.status,
+		createdAt: ticket.createdAt,
+		closedAt: ticket.closedAt,
+		roles: {
+			opener: ticket.openerId === discordId,
+			claimedBy: ticket.claimedBy === discordId,
+			participant: ticket.participants?.includes(discordId) ?? false,
+			closedBy: ticket.closedBy === discordId,
+		},
+		issueDescription: ticket.openerId === discordId ? ticket.issueDescription : undefined,
+		messages: (ticket.transcript ?? []).filter(entry => entry.authorId === discordId),
+	}));
+
+	return c.json({
+		exportedAt: new Date().toISOString(),
+		discordId,
+		profile: { username: session.username, avatar: session.avatar },
+		sessions,
+		tickets: personalTickets,
+		inviteJoins,
+	});
+});
+
+app.delete('/api/me', async (c) => {
+	const session = c.get('session');
+	const body = await c.req.json().catch(() => ({}));
+	if (body.confirmation !== 'DELETE') return c.json({ error: 'Type DELETE to confirm account deletion' }, 400);
+
+	const discordId = session.discordId;
+	const anonymousId = `deleted-${randomBytes(12).toString('hex')}`;
+	const sessions = await Session.find({ discordId }).lean();
+
+	await Promise.all(sessions.map(async current => {
+		const revokeBody = new URLSearchParams({ token: current.accessToken, token_type_hint: 'access_token' });
+		await fetch(`${DISCORD_API}/oauth2/token/revoke`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+			body: revokeBody,
+		}).catch(() => null);
+	}));
+
+	const tickets = await Ticket.find({
+		$or: [
+			{ openerId: discordId },
+			{ claimedBy: discordId },
+			{ closedBy: discordId },
+			{ participants: discordId },
+			{ 'transcript.authorId': discordId },
+		],
+	});
+	for (const ticket of tickets) {
+		if (ticket.openerId === discordId) {
+			ticket.openerId = anonymousId;
+			ticket.issueDescription = null;
+		}
+		if (ticket.claimedBy === discordId) ticket.claimedBy = null;
+		if (ticket.closedBy === discordId) ticket.closedBy = anonymousId;
+		ticket.participants = ticket.participants.filter(id => id !== discordId);
+		for (const entry of ticket.transcript) {
+			if (entry.authorId === discordId) {
+				entry.authorId = anonymousId;
+				entry.authorTag = 'Deleted user';
+				entry.authorDisplayName = 'Deleted user';
+				entry.authorAvatarUrl = null;
+				entry.content = '[Content erased at the user’s request]';
+				entry.attachments = [];
+				entry.attachmentMetadata = [];
+				entry.embeds = [];
+				entry.components = [];
+				entry.stickers = [];
+			}
+			if (entry.reference?.authorTag === session.username || entry.reference?.authorDisplayName === session.username) {
+				entry.reference = { authorTag: 'Deleted user', authorDisplayName: 'Deleted user', content: '[Content erased]' };
+			}
+		}
+		await ticket.save();
+	}
+
+	await Promise.all([
+		InviteJoin.updateMany({ memberId: discordId }, { $set: { memberId: anonymousId, memberTag: 'Deleted user' } }),
+		InviteJoin.updateMany({ inviterId: discordId }, { $set: { inviterId: anonymousId, inviterTag: 'Deleted user' } }),
+		Session.deleteMany({ discordId }),
+	]);
+
+	return c.json({ deleted: true });
 });
 
 app.patch('/api/guilds/:guildId/tickets/:threadId', async (c) => {
@@ -235,10 +376,216 @@ app.patch('/api/guilds/:guildId/tickets/:threadId', async (c) => {
 	const ticket = await Ticket.findOneAndUpdate(
 		{ guildId, threadId },
 		{ $set: allowed },
-		{ new: true },
+		{ returnDocument: 'after' },
 	).lean();
 	if (!ticket) return c.json({ error: 'Ticket not found' }, 404);
 	return c.json(ticket);
+});
+
+// ---- Patch Notes ----
+const PATCH_NOTE_CONFIG_ALLOWED = [
+	'channelId',
+	'enabled',
+	'showDownloads',
+	'showChangelog',
+	'mentionRoleId',
+];
+
+function serializePatchNoteConfig(config) {
+	const result = typeof config.toObject === 'function' ? config.toObject() : config;
+	return {
+		...result,
+		sources: (result.sources ?? []).map(source => ({ ...source, hasToken: Boolean(source.token), token: undefined })),
+		limits: getPatchNoteLimits(),
+	};
+}
+
+app.get('/api/guilds/:guildId/patch-notes-config', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const config = await PatchNoteConfig.findOneAndUpdate(
+		{ guildId },
+		{ $setOnInsert: { guildId } },
+		{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
+	).lean();
+	return c.json(serializePatchNoteConfig(config));
+});
+
+app.patch('/api/guilds/:guildId/patch-notes-config', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const body = await c.req.json();
+	const updates = {};
+	for (const key of PATCH_NOTE_CONFIG_ALLOWED) {
+		if (body[key] !== undefined) updates[key] = body[key];
+	}
+
+	const config = await PatchNoteConfig.findOneAndUpdate(
+		{ guildId },
+		{ $set: updates },
+		{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
+	).lean();
+	return c.json(serializePatchNoteConfig(config));
+});
+
+app.get('/api/guilds/:guildId/resources', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const headers = { Authorization: `Bot ${process.env.DISCORD_TOKEN}` };
+	const [rolesResponse, channelsResponse] = await Promise.all([
+		fetch(`${DISCORD_API}/guilds/${guildId}/roles`, { headers }),
+		fetch(`${DISCORD_API}/guilds/${guildId}/channels`, { headers }),
+	]);
+	if (!rolesResponse.ok || !channelsResponse.ok) {
+		return c.json({ error: 'Unable to fetch Discord guild resources' }, 502);
+	}
+
+	const [roles, channels] = await Promise.all([rolesResponse.json(), channelsResponse.json()]);
+	return c.json({
+		roles: roles
+			.filter(role => role.id !== guildId && !role.managed)
+			.sort((a, b) => b.position - a.position)
+			.map(role => ({ id: role.id, name: role.name, color: role.color })),
+		channels: channels
+			.filter(channel => [0, 5].includes(channel.type))
+			.sort((a, b) => a.position - b.position)
+			.map(channel => ({ id: channel.id, name: channel.name, type: channel.type })),
+	});
+});
+
+app.post('/api/guilds/:guildId/patch-notes-config/sources', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const body = await c.req.json();
+	const type = typeof body.type === 'string' ? body.type.toLowerCase() : '';
+	const label = typeof body.label === 'string' ? body.label.trim() : '';
+	const url = typeof body.url === 'string' ? body.url.trim() : '';
+	if (!['rss', 'github'].includes(type) || !label || label.length > 50) {
+		return c.json({ error: 'Invalid source type or label' }, 400);
+	}
+
+	let parsedUrl;
+	try {
+		parsedUrl = new URL(url);
+	}
+	catch {
+		return c.json({ error: 'Invalid source URL' }, 400);
+	}
+	if (!['http:', 'https:'].includes(parsedUrl.protocol) || (type === 'github' && !parseGithubUrl(url))) {
+		return c.json({ error: 'Invalid source URL' }, 400);
+	}
+	const token = type === 'github' && typeof body.token === 'string' ? body.token.trim() : '';
+	if (type === 'github') {
+		if (!token) return c.json({ error: 'A GitHub access token is required' }, 400);
+		const repository = parseGithubUrl(url);
+		try {
+			await validateGithubToken(repository.owner, repository.repo, token);
+		}
+		catch (error) {
+			return c.json({ error: error.message }, 400);
+		}
+	}
+
+	try {
+		const config = await addPatchNoteSource(guildId, {
+			type,
+			label,
+			url,
+			token: type === 'github' ? token : null,
+		});
+		return c.json(serializePatchNoteConfig(config), 201);
+	}
+	catch (error) {
+		if (error.code === 'PATCH_NOTE_SOURCE_LIMIT') {
+			return c.json({ error: `Source limit reached (${error.limit})` }, 400);
+		}
+		throw error;
+	}
+});
+
+app.patch('/api/guilds/:guildId/patch-notes-config/sources/:sourceId', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const config = await PatchNoteConfig.findOne({ guildId });
+	const existing = config?.sources.find(source => source.id === c.req.param('sourceId'));
+	if (!existing) return c.json({ error: 'Source not found' }, 404);
+
+	const body = await c.req.json();
+	const label = typeof body.label === 'string' ? body.label.trim() : '';
+	const url = typeof body.url === 'string' ? body.url.trim() : '';
+	if (!label || label.length > 50) return c.json({ error: 'Invalid source label' }, 400);
+
+	let parsedUrl;
+	try {
+		parsedUrl = new URL(url);
+	}
+	catch {
+		return c.json({ error: 'Invalid source URL' }, 400);
+	}
+	if (!['http:', 'https:'].includes(parsedUrl.protocol) || (existing.type === 'github' && !parseGithubUrl(url))) {
+		return c.json({ error: 'Invalid source URL' }, 400);
+	}
+
+	const updates = { label, url, enabled: body.enabled !== false };
+	if (existing.type === 'github') {
+		const token = typeof body.token === 'string' && body.token.trim() ? body.token.trim() : existing.token;
+		if (!token) return c.json({ error: 'A GitHub access token is required' }, 400);
+		const repository = parseGithubUrl(url);
+		try {
+			await validateGithubToken(repository.owner, repository.repo, token);
+		}
+		catch (error) {
+			return c.json({ error: error.message }, 400);
+		}
+		updates.token = token;
+	}
+
+	const updated = await updatePatchNoteSource(guildId, existing.id, updates);
+	return c.json(serializePatchNoteConfig(updated));
+});
+
+app.delete('/api/guilds/:guildId/patch-notes-config/sources/:sourceId', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const config = await removePatchNoteSource(guildId, c.req.param('sourceId'));
+	return c.json(serializePatchNoteConfig(config));
+});
+
+app.post('/api/guilds/:guildId/patch-notes/webhook', async (c) => {
+	const guildId = c.req.param('guildId');
+	const body = await c.req.json();
+
+	if (!body?.title) return c.json({ error: 'Missing title' }, 400);
+
+	const config = await PatchNoteConfig.findOne({ guildId }).lean();
+	if (!config?.enabled || !config?.channelId) {
+		return c.json({ error: 'Patch notes not enabled or no channel configured' }, 400);
+	}
+
+	const note = await PatchNote.create({
+		guildId,
+		guid: body.guid ?? `${body.title}-${Date.now()}`,
+		title: body.title,
+		link: body.link ?? null,
+		publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
+		content: body.content ?? '',
+		sourceLabel: body.sourceLabel ?? 'Webhook',
+		assets: body.assets ?? [],
+	});
+
+	return c.json({ ok: true, id: note._id });
 });
 
 // ---- Invite Joins ----
@@ -278,10 +625,10 @@ async function start() {
 	try {
 		await mongoose.connect(process.env.MONGODB_URI);
 		serve({ fetch: app.fetch, port });
-		console.log(`[api] listening on http://localhost:${port}`);
+		logger.info(`[api] listening on http://localhost:${port}`);
 	}
 	catch (error) {
-		console.error('[api] failed to start:', error);
+		logger.error('[api] failed to start:', error);
 		process.exit(1);
 	}
 }

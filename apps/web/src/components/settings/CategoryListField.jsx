@@ -1,7 +1,8 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useI18n } from '../../hooks/useI18n.jsx';
+import { RoleSelect } from '../DiscordResourceSelect.jsx';
 
-export default function CategoryListField({ field, value, onChange }) {
+export default function CategoryListField({ field, value, onChange, resources }) {
 	const { t } = useI18n();
 	const categories = value ?? [];
 	const addCategory = () => onChange([...categories, { id: '', label: '', emoji: null, description: null, priority: null, supportRoleIds: [] }]);
@@ -31,8 +32,21 @@ export default function CategoryListField({ field, value, onChange }) {
 							<option value="high">{t('settings.priorityHigh')}</option>
 						</select>
 					</div>
-					<div className="category-row">
-						<input className="form-input" placeholder={t('settings.categorySupportRoles')} value={(category.supportRoleIds ?? []).join(', ')} onChange={(e) => updateCategory(index, 'supportRoleIds', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))} />
+					<div className="category-row category-role-selects">
+						{(category.supportRoleIds ?? []).map((roleId, roleIndex) => (
+							<div className="form-row" key={`${category.id}-${roleIndex}`}>
+								<RoleSelect roles={resources?.roles ?? []} value={roleId} allowNone={false} onChange={next => {
+									const roles = [...(category.supportRoleIds ?? [])];
+									roles[roleIndex] = next;
+									updateCategory(index, 'supportRoleIds', roles);
+								}} />
+								<button className="icon-btn icon-btn-danger" onClick={() => updateCategory(index, 'supportRoleIds', (category.supportRoleIds ?? []).filter((_, current) => current !== roleIndex))}><Trash2 size={14} /></button>
+							</div>
+						))}
+						<button className="btn btn-secondary" disabled={!resources?.roles?.some(role => !(category.supportRoleIds ?? []).includes(role.id))} onClick={() => {
+							const available = resources.roles.find(role => !(category.supportRoleIds ?? []).includes(role.id));
+							if (available) updateCategory(index, 'supportRoleIds', [...(category.supportRoleIds ?? []), available.id]);
+						}}><Plus size={14} />{t('settings.addRole')}</button>
 					</div>
 				</div>
 			))}

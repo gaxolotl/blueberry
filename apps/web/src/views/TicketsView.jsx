@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Ticket, User, UserCheck, Calendar, CalendarX, StickyNote, FileText, Eye, Download, X } from 'lucide-react';
+import { Ticket, User, UserCheck, Calendar, CalendarX, StickyNote, FileText, Eye, Download, X, Tags, Shield } from 'lucide-react';
 import { useApi } from '../hooks/useApi.js';
 import { useI18n } from '../hooks/useI18n.jsx';
 import { Loading, Error, Empty } from '../components/State.jsx';
@@ -50,7 +50,7 @@ function TranscriptModal({ guildId, ticket, onClose }) {
 
 	function download() {
 		if (!transcript) return;
-		const blob = new Blob([transcript.text], { type: 'text/plain' });
+		const blob = new Blob([transcript.html], { type: 'text/html' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -61,7 +61,7 @@ function TranscriptModal({ guildId, ticket, onClose }) {
 
 	return (
 		<div className="modal-overlay" onClick={onClose}>
-			<div className="modal" onClick={(e) => e.stopPropagation()}>
+			<div className="modal transcript-modal" onClick={(e) => e.stopPropagation()}>
 				<div className="modal-header">
 					<h2 className="modal-title">{t('tickets.transcriptTitle', { id: ticket.threadId })}</h2>
 					<div className="modal-actions">
@@ -76,12 +76,10 @@ function TranscriptModal({ guildId, ticket, onClose }) {
 						</button>
 					</div>
 				</div>
-				<div className="modal-body">
+				<div className="modal-body transcript-modal-body">
 					{loading && <Loading />}
 					{error && <Error message={error} />}
-					{transcript && (
-						<pre className="transcript-pre">{transcript.text}</pre>
-					)}
+					{transcript && <iframe className="transcript-frame" srcDoc={transcript.html} title={t('tickets.transcriptTitle', { id: ticket.threadId })} sandbox="allow-popups allow-popups-to-escape-sandbox" />}
 				</div>
 			</div>
 		</div>
@@ -134,6 +132,8 @@ export default function TicketsView({ guildId }) {
 							<th>{t('tickets.category')}</th>
 							<th>{t('tickets.opener')}</th>
 							<th>{t('tickets.claimedBy')}</th>
+							<th>{t('tickets.assignedRole')}</th>
+							<th>{t('tickets.tags')}</th>
 							<th>{t('tickets.notes')}</th>
 							<th>{t('tickets.transcript')}</th>
 							<th>{t('tickets.created')}</th>
@@ -165,12 +165,14 @@ export default function TicketsView({ guildId }) {
 										{ticket.openerId}
 									</span>
 								</td>
-								<td>
-									<span className="cell-with-icon">
-										<UserCheck size={13} />
-										{ticket.claimedBy ?? '—'}
-									</span>
-								</td>
+							<td>
+								<span className="cell-with-icon">
+									<UserCheck size={13} />
+									{ticket.claimedBy ?? '—'}
+								</span>
+							</td>
+							<td><span className="cell-with-icon"><Shield size={13} />{ticket.assignedRoleId ?? '—'}</span></td>
+							<td><span className="cell-with-icon"><Tags size={13} />{ticket.tags?.length ? ticket.tags.join(', ') : '—'}</span></td>
 								<td>
 									<span className="cell-with-icon" title={ticket.notes ?? ''}>
 										<StickyNote size={13} />

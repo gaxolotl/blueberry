@@ -9,6 +9,19 @@ const ticketCategorySchema = new Schema({
 	supportRoleIds: { type: [String], default: [] },
 }, { _id: false });
 
+const automationRuleSchema = new Schema({
+	id: { type: String, required: true },
+	label: { type: String, required: true },
+	matchMode: { type: String, enum: ['keywords', 'regex'], default: 'keywords' },
+	pattern: { type: String, required: true },
+	categoryId: { type: String, default: null },
+	tag: { type: String, default: null },
+	assignRoleId: { type: String, default: null },
+	priority: { type: String, enum: ['low', 'medium', 'high'], default: null },
+	response: { type: String, default: null },
+	enabled: { type: Boolean, default: true },
+}, { _id: false });
+
 const ticketConfigSchema = new Schema({
 	guildId: { type: String, required: true, unique: true, index: true },
 	threadChannelId: { type: String, default: null },
@@ -25,6 +38,8 @@ const ticketConfigSchema = new Schema({
 	defaultPriority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
 	autoCloseMinutes: { type: Number, default: 0 },
 	requireCloseReason: { type: Boolean, default: false },
+	automationEnabled: { type: Boolean, default: false },
+	automationRules: { type: [automationRuleSchema], default: [] },
 });
 
 export default model('TicketConfig', ticketConfigSchema);

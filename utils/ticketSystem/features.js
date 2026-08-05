@@ -1,27 +1,64 @@
-import { ContainerBuilder, MessageFlags, AttachmentBuilder } from 'discord.js';
+import { ContainerBuilder, MessageFlags, AttachmentBuilder, FileBuilder } from 'discord.js';
 import Ticket from '../../models/Ticket.js';
 import { t } from '../i18n.js';
 import { emojis } from '../emoji.js';
 import logger from '../logger.js';
-import { accentColor, checkEmoji, errorEmoji } from './constants.js';
+import { checkEmoji, errorEmoji } from './constants.js';
 import { buildTextContainer, replyContainer } from './config.js';
+import { getAccentColor, getErrorColor } from '../color.js';
+import { buildTranscriptHtml } from './transcriptHtml.js';
 
 /**
  * @param {import('discord.js').ThreadChannel} thread
- * @returns {Promise<Array<{authorId: string, authorTag: string, content: string, attachments: string[], createdAt: Date}>>}
+ * @returns {Promise<Array<object>>}
  */
 async function buildTranscriptEntries(thread) {
-	const messages = await thread.messages.fetch({ limit: 100 });
+	const messages = [];
+	let before;
+
+	while (true) {
+		const page = await thread.messages.fetch({ limit: 100, before });
+		if (page.size === 0) break;
+		messages.push(...page.values());
+		before = page.last().id;
+		if (page.size < 100) break;
+	}
+
 	const entries = [];
 
-	for (const message of messages.values()) {
-		if (message.author.id === message.client.user.id) continue;
+	for (const message of messages) {
+		let referencedMessage = null;
+		if (message.reference?.messageId) {
+			referencedMessage = await message.fetchReference().catch(() => null);
+		}
 
 		entries.push({
 			authorId: message.author.id,
 			authorTag: message.author.tag ?? message.author.username,
+			authorDisplayName: message.member?.displayName ?? message.author.globalName ?? message.author.username,
+			authorAvatarUrl: message.author.displayAvatarURL({ extension: 'png', size: 128 }),
+			authorBot: message.author.bot,
 			content: message.content || '',
 			attachments: message.attachments.map(attachment => attachment.url),
+			attachmentMetadata: message.attachments.map(attachment => ({
+				url: attachment.url,
+				name: attachment.name,
+				contentType: attachment.contentType,
+				size: attachment.size,
+				width: attachment.width,
+				height: attachment.height,
+			})),
+			embeds: message.embeds.map(embed => embed.toJSON()),
+			components: message.components.map(component => component.toJSON()),
+			stickers: message.stickers.map(sticker => ({
+				name: sticker.name,
+				url: sticker.url,
+			})),
+			reference: referencedMessage ? {
+				authorTag: referencedMessage.author.tag ?? referencedMessage.author.username,
+				authorDisplayName: referencedMessage.member?.displayName ?? referencedMessage.author.globalName ?? referencedMessage.author.username,
+				content: referencedMessage.content?.slice(0, 160) ?? '',
+			} : null,
 			createdAt: message.createdAt,
 		});
 	}
@@ -85,11 +122,12 @@ export async function postTranscript(guild, ticketConfig, ticket) {
 	const priorityLine = await t(guild.id, 'ticket_transcript_priority', { priority: ticket.priority });
 	const openerLine = await t(guild.id, 'ticket_transcript_opener', { user: `<@${ticket.openerId}>` });
 
-	const text = buildTranscriptText(ticket);
-	const attachment = new AttachmentBuilder(Buffer.from(text, 'utf8'), { name: `transcript-${ticket.threadId}.txt` });
+	const html = buildTranscriptHtml(ticket);
+	const filename = `transcript-${ticket.threadId}.html`;
+	const attachment = new AttachmentBuilder(Buffer.from(html, 'utf8'), { name: filename });
 
 	const container = new ContainerBuilder()
-		.setAccentColor(accentColor)
+		.setAccentColor(await getAccentColor(guild.id))
 		.addTextDisplayComponents(textDisplay =>
 			textDisplay.setContent(
 				[
@@ -99,7 +137,8 @@ export async function postTranscript(guild, ticketConfig, ticket) {
 					`-# ${openerLine}`,
 				].join('\n'),
 			),
-		);
+		)
+		.addFileComponents(new FileBuilder().setURL(`attachment://${filename}`));
 
 	const message = await transcriptChannel.send({
 		content: '',
@@ -124,6 +163,7 @@ export async function saveTranscript(guild, ticketConfig, ticket) {
 
 	const entries = await buildTranscriptEntries(thread);
 	ticket.transcript = entries;
+	ticket.transcriptChannelName = thread.name;
 	await ticket.save();
 
 	await postTranscript(guild, ticketConfig, ticket);
@@ -159,7 +199,7 @@ export async function autoCloseStaleTickets(guild, ticketConfig) {
 
 			const notice = await t(guild.id, 'ticket_auto_close_notice', { emoji: emojis.x_ });
 			await thread.send({
-				components: [buildTextContainer(notice, 0xFF0000)],
+				components: [buildTextContainer(notice, await getErrorColor(guild.id))],
 				flags: MessageFlags.IsComponentsV2,
 			}).catch(() => null);
 			await thread.setArchived(true, 'Auto-closed due to inactivity').catch(() => null);
@@ -205,18 +245,23 @@ export async function setTicketNote(interaction, ticket, note) {
 export async function showTicketTranscript(interaction, ticket) {
 	if (ticket.transcript.length === 0) {
 		const noTranscript = await t(interaction.guildId, 'ticket_transcript_empty', { emoji: errorEmoji });
-		await replyContainer(interaction, buildTextContainer(noTranscript, 0xFF0000));
+		await replyContainer(interaction, buildTextContainer(noTranscript, await getErrorColor(interaction.guildId)));
 		return;
 	}
 
 	const title = await t(interaction.guildId, 'ticket_transcript_title', { emoji: emojis.ticket });
-	const lines = [`## ${title}`];
+	const filename = `transcript-${ticket.threadId}.html`;
+	const attachment = new AttachmentBuilder(Buffer.from(buildTranscriptHtml(ticket), 'utf8'), {
+		name: filename,
+	});
+	const container = buildTextContainer(`## ${title}`)
+		.addFileComponents(new FileBuilder().setURL(`attachment://${filename}`));
+	const payload = {
+		components: [container],
+		files: [attachment],
+		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+	};
 
-	for (const entry of ticket.transcript) {
-		const time = entry.createdAt ? new Date(entry.createdAt).toLocaleString() : '—';
-		const content = entry.content || (entry.attachments.length ? `[${entry.attachments.length} attachment(s)]` : '');
-		lines.push(`**${entry.authorTag}** \`${time}\`\n${content}`);
-	}
-
-	await replyContainer(interaction, buildTextContainer(lines.join('\n').slice(0, 4000)));
+	if (interaction.replied || interaction.deferred) await interaction.editReply(payload);
+	else await interaction.reply(payload);
 }
