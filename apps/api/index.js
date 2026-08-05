@@ -564,7 +564,9 @@ app.delete('/api/guilds/:guildId/patch-notes-config/sources/:sourceId', async (c
 });
 
 app.post('/api/guilds/:guildId/patch-notes/webhook', async (c) => {
+	const session = c.get('session');
 	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
 	const body = await c.req.json();
 
 	if (!body?.title) return c.json({ error: 'Missing title' }, 400);
@@ -574,16 +576,26 @@ app.post('/api/guilds/:guildId/patch-notes/webhook', async (c) => {
 		return c.json({ error: 'Patch notes not enabled or no channel configured' }, 400);
 	}
 
-	const note = await PatchNote.create({
-		guildId,
-		guid: body.guid ?? `${body.title}-${Date.now()}`,
-		title: body.title,
-		link: body.link ?? null,
-		publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
-		content: body.content ?? '',
-		sourceLabel: body.sourceLabel ?? 'Webhook',
-		assets: body.assets ?? [],
-	});
+	const sourceId = body.sourceId ?? 'webhook';
+	const guid = body.guid ?? `${body.title}-${Date.now()}`;
+	const note = await PatchNote.findOneAndUpdate(
+		{ guildId, sourceId, guid },
+		{
+			$setOnInsert: {
+				guildId,
+				sourceId,
+				sourceType: 'webhook',
+				guid,
+				title: body.title,
+				link: body.link ?? null,
+				publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
+				content: body.content ?? '',
+				sourceLabel: body.sourceLabel ?? 'Webhook',
+				assets: body.assets ?? [],
+			},
+		},
+		{ upsert: true, returnDocument: 'after' },
+	);
 
 	return c.json({ ok: true, id: note._id });
 });

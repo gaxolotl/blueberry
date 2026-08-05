@@ -11,6 +11,13 @@ export default {
 		githubPollIntervalSeconds: 300,
 		rssRateLimitRetrySeconds: 300,
 		requestTimeoutMs: 15_000,
+		sourcePollConcurrency: 5,
+		deliveryConcurrency: 3,
+		maxDeliveriesPerCycle: 50,
+		deliveryRetryBaseSeconds: 60,
+		deliveryLeaseSeconds: 300,
+		maxDeliveryAttempts: 20,
+		queueRetentionDays: 30,
 	},
 	ticketAutomation: {
 		maxRules: 20,
