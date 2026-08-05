@@ -26,5 +26,6 @@ const patchNoteConfigSchema = new Schema({
 });
 
 patchNoteConfigSchema.index({ guildId: 1, 'sources.id': 1 });
+patchNoteConfigSchema.index({ enabled: 1, channelId: 1 });
 
 export default model('PatchNoteConfig', patchNoteConfigSchema);

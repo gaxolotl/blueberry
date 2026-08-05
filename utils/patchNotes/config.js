@@ -14,6 +14,13 @@ export function getPatchNoteLimits() {
 		pollIntervalSeconds: appConfig.patchNotes?.pollIntervalSeconds ?? 300,
 		githubPollIntervalSeconds: appConfig.patchNotes?.githubPollIntervalSeconds ?? 300,
 		rssRateLimitRetrySeconds: appConfig.patchNotes?.rssRateLimitRetrySeconds ?? 300,
+		sourcePollConcurrency: appConfig.patchNotes?.sourcePollConcurrency ?? 5,
+		deliveryConcurrency: appConfig.patchNotes?.deliveryConcurrency ?? 3,
+		maxDeliveriesPerCycle: appConfig.patchNotes?.maxDeliveriesPerCycle ?? 50,
+		deliveryRetryBaseSeconds: appConfig.patchNotes?.deliveryRetryBaseSeconds ?? 60,
+		deliveryLeaseSeconds: appConfig.patchNotes?.deliveryLeaseSeconds ?? 300,
+		maxDeliveryAttempts: appConfig.patchNotes?.maxDeliveryAttempts ?? 20,
+		queueRetentionDays: appConfig.patchNotes?.queueRetentionDays ?? 30,
 	};
 }
 
