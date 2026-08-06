@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, validate, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Create CI configuration
+        run: cp config.example.js config.js
+
+      - name: Lint
+        run: pnpm exec eslint .
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r file; do
+            node --check "$file"
+          done < <(git ls-files '*.js' ':!apps/web/dist/**')
+
+      - name: Validate JSON catalogs
+        run: >-
+          node --input-type=module -e
+          "import { readFile } from 'node:fs/promises';
+          for (const file of ['messages/en.json', 'messages/bg.json', 'apps/web/src/i18n/en.json', 'apps/web/src/i18n/bg.json'])
+          JSON.parse(await readFile(file, 'utf8'));"
+
+      - name: Compile localization messages
+        run: pnpm run build:i18n
+
+      - name: Verify generated localization exports
+        run: >-
+          node --input-type=module -e
+          "import { readFile } from 'node:fs/promises';
+          const source = JSON.parse(await readFile('messages/en.json', 'utf8'));
+          const generated = await import('./paraglide/messages.js');
+          const missing = Object.keys(source).filter(key => key !== '\u0024schema' && typeof generated[key] !== 'function');
+          if (missing.length) throw new Error('Missing generated messages: ' + missing.join(', '));"
+
+      - name: Smoke-test runtime modules
+        run: >-
+          node --input-type=module -e
+          "await Promise.all([
+          import('./models/Guild.js'),
+          import('./models/Ticket.js'),
+          import('./models/TicketConfig.js'),
+          import('./models/PatchNote.js'),
+          import('./models/PatchNoteConfig.js'),
+          import('./utils/color.js'),
+          import('./utils/patchNotes/fetcher.js'),
+          import('./utils/patchNotes/tracker.js'),
+          import('./utils/ticketSystem/autoCategorizer.js'),
+          import('./utils/ticketSystem/transcriptHtml.js')
+          ]);"
+
+      - name: Build dashboard
+        run: pnpm --filter @blueberry/web run build
+
+      - name: Verify generated dashboard assets
+        run: git diff --exit-code -- apps/web/dist
