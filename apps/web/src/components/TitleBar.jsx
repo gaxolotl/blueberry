@@ -10,6 +10,7 @@ export default function TitleBar() {
 				<Cherry size={18} className="titlebar-logo" />
 				<span className="titlebar-title">{t('app.title')}</span>
 			</div>
+			{/*
 			<div className="titlebar-window-controls">
 				<span className="window-btn">
 					<Minus size={14} />
@@ -21,6 +22,7 @@ export default function TitleBar() {
 					<X size={14} />
 				</span>
 			</div>
+			*/}
 		</header>
 	);
 }
