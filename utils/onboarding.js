@@ -3,6 +3,7 @@ import config from '../config.js';
 import OnboardingConfig from '../models/OnboardingConfig.js';
 import { getAccentColor, getErrorColor } from './color.js';
 import { t } from './i18n.js';
+import { buildComponentsV2Template } from './componentsV2Template.js';
 
 async function getOnboardingConfig(guildId) {
 	return OnboardingConfig.findOneAndUpdate(
@@ -12,12 +13,12 @@ async function getOnboardingConfig(guildId) {
 	).lean();
 }
 
-async function sendOnboardingMessage(channel, guildId, content, error = false) {
+async function sendOnboardingMessage(channel, guildId, content, error = false, template = null, variables = {}) {
 	if (!channel?.isTextBased()) return false;
-	const container = new ContainerBuilder()
-		.setAccentColor(await (error ? getErrorColor(guildId) : getAccentColor(guildId)))
-		.addTextDisplayComponents(textDisplay => textDisplay.setContent(content));
-	await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+	const components = template
+		? await buildComponentsV2Template(guildId, template, variables)
+		: [new ContainerBuilder().setAccentColor(await (error ? getErrorColor(guildId) : getAccentColor(guildId))).addTextDisplayComponents(textDisplay => textDisplay.setContent(content))];
+	await channel.send({ components, allowedMentions: { parse: [], users: variables.userId ? [variables.userId] : [] }, flags: MessageFlags.IsComponentsV2 });
 	return true;
 }
 
@@ -29,18 +30,28 @@ function renderOnboardingMessage(template, member, inviteCode = null) {
 		.replaceAll('{invite}', inviteCode && inviteCode !== 'unknown' ? `\`${inviteCode}\`` : 'an invite');
 }
 
+function getOnboardingVariables(member, inviteCode = null) {
+	return {
+		user: `<@${member.id}>`,
+		userId: member.id,
+		username: member.user.username,
+		server: member.guild.name,
+		invite: inviteCode && inviteCode !== 'unknown' ? `\`${inviteCode}\`` : 'an invite',
+	};
+}
+
 async function sendWelcomeMessage(member, inviteCode) {
 	const settings = await getOnboardingConfig(member.guild.id);
 	if (!settings.welcomeEnabled || !settings.welcomeChannelId) return false;
 	const channel = await member.guild.channels.fetch(settings.welcomeChannelId).catch(() => null);
-	return sendOnboardingMessage(channel, member.guild.id, renderOnboardingMessage(settings.welcomeMessage, member, inviteCode));
+	return sendOnboardingMessage(channel, member.guild.id, renderOnboardingMessage(settings.welcomeMessage, member, inviteCode), false, settings.welcomeTemplate, getOnboardingVariables(member, inviteCode));
 }
 
 async function sendFarewellMessage(member) {
 	const settings = await getOnboardingConfig(member.guild.id);
 	if (!settings.farewellEnabled || !settings.farewellChannelId) return false;
 	const channel = await member.guild.channels.fetch(settings.farewellChannelId).catch(() => null);
-	return sendOnboardingMessage(channel, member.guild.id, renderOnboardingMessage(settings.farewellMessage, member));
+	return sendOnboardingMessage(channel, member.guild.id, renderOnboardingMessage(settings.farewellMessage, member), false, settings.farewellTemplate, getOnboardingVariables(member));
 }
 
 async function applyNewcomerSafety(member, settings = null) {

@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.jsx';
 import { useGuildResources } from '../hooks/useGuildResources.js';
 import { useI18n } from '../hooks/useI18n.jsx';
 import { apiFetch } from '../utils/api.js';
+import ComponentsV2Editor from '../components/componentsV2/ComponentsV2Editor.jsx';
 
 export default function OnboardingView({ guildId }) {
 	const { t } = useI18n();
@@ -66,12 +67,14 @@ export default function OnboardingView({ guildId }) {
 
 			<section className="panel onboarding-panel">
 				<div className="onboarding-panel-heading"><UserPlus size={20} /><div><h2>{t('onboarding.welcomeTitle')}</h2><p>{t('onboarding.welcomeDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.welcomeEnabled} onChange={event => update('welcomeEnabled', event.target.checked)} /><span>{t('onboarding.enabled')}</span></label></div>
-				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.welcomeChannelId} onChange={value => update('welcomeChannelId', value || null)} /></label><label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.welcomeMessage} onChange={event => update('welcomeMessage', event.target.value)} /><span className="form-hint">{t('onboarding.welcomeVariables')}</span></label></div>
+				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.welcomeChannelId} onChange={value => update('welcomeChannelId', value || null)} /></label>{!settings.welcomeTemplate && <label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.welcomeMessage} onChange={event => update('welcomeMessage', event.target.value)} /><span className="form-hint">{t('onboarding.welcomeVariables')}</span></label>}</div>
+				<ComponentsV2Editor value={settings.welcomeTemplate} fallbackMessage={settings.welcomeMessage} onChange={value => update('welcomeTemplate', value)} variablesHint={t('onboarding.welcomeVariables')} limits={settings.limits.componentsV2} />
 			</section>
 
 			<section className="panel onboarding-panel">
 				<div className="onboarding-panel-heading"><UserMinus size={20} /><div><h2>{t('onboarding.farewellTitle')}</h2><p>{t('onboarding.farewellDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.farewellEnabled} onChange={event => update('farewellEnabled', event.target.checked)} /><span>{t('onboarding.enabled')}</span></label></div>
-				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.farewellChannelId} onChange={value => update('farewellChannelId', value || null)} /></label><label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.farewellMessage} onChange={event => update('farewellMessage', event.target.value)} /><span className="form-hint">{t('onboarding.farewellVariables')}</span></label></div>
+				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.farewellChannelId} onChange={value => update('farewellChannelId', value || null)} /></label>{!settings.farewellTemplate && <label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.farewellMessage} onChange={event => update('farewellMessage', event.target.value)} /><span className="form-hint">{t('onboarding.farewellVariables')}</span></label>}</div>
+				<ComponentsV2Editor value={settings.farewellTemplate} fallbackMessage={settings.farewellMessage} onChange={value => update('farewellTemplate', value)} variablesHint={t('onboarding.farewellVariables')} limits={settings.limits.componentsV2} />
 			</section>
 
 			<section className="panel onboarding-panel">

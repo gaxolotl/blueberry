@@ -83,6 +83,7 @@ jobs:
           import('./models/OnboardingConfig.js'),
           import('./utils/color.js'),
           import('./utils/onboarding.js'),
+          import('./utils/componentsV2Template.js'),
           import('./utils/patchNotes/fetcher.js'),
           import('./utils/patchNotes/tracker.js'),
           import('./utils/ticketSystem/autoCategorizer.js'),

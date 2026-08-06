@@ -20,6 +20,7 @@ import { parseGithubUrl, validateGithubToken } from '../../utils/patchNotes/fetc
 import { getTicketAutomationLimits, validateAutomationRules } from '../../utils/ticketSystem/autoCategorizer.js';
 import OnboardingConfig from '../../models/OnboardingConfig.js';
 import appConfig from '../../config.js';
+import { componentsV2TemplateLimits, validateComponentsV2Template } from '../../utils/componentsV2Template.js';
 
 const app = new Hono();
 
@@ -133,9 +134,11 @@ const ONBOARDING_ALLOWED = [
 	'welcomeEnabled',
 	'welcomeChannelId',
 	'welcomeMessage',
+	'welcomeTemplate',
 	'farewellEnabled',
 	'farewellChannelId',
 	'farewellMessage',
+	'farewellTemplate',
 	'autoRoleIds',
 	'accountAgeAlertEnabled',
 	'accountAgeAlertChannelId',
@@ -149,6 +152,7 @@ function serializeOnboardingConfig(settings) {
 		limits: {
 			maxAutoRoles: appConfig.onboarding.maxAutoRoles,
 			maxAccountAgeDays: appConfig.onboarding.maxAccountAgeDays,
+			componentsV2: componentsV2TemplateLimits,
 		},
 	};
 }
@@ -184,6 +188,9 @@ app.patch('/api/guilds/:guildId/onboarding-config', async (c) => {
 		if (updates[key] !== undefined && (typeof updates[key] !== 'string' || !updates[key].trim() || updates[key].length > 1000)) {
 			return c.json({ error: `Invalid ${key}` }, 400);
 		}
+	}
+	for (const key of ['welcomeTemplate', 'farewellTemplate']) {
+		if (updates[key] !== undefined && !validateComponentsV2Template(updates[key])) return c.json({ error: `Invalid ${key}` }, 400);
 	}
 	const settings = await OnboardingConfig.findOneAndUpdate(
 		{ guildId },
