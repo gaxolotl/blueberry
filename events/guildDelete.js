@@ -1,5 +1,6 @@
 import { Events } from 'discord.js';
 import Guild from '../models/Guild.js';
+import OnboardingConfig from '../models/OnboardingConfig.js';
 import logger from '../utils/logger.js';
 
 export default {
@@ -7,7 +8,10 @@ export default {
 	once: false,
 	async execute(guild) {
 		try {
-			await Guild.deleteOne({ guildId: guild.id });
+			await Promise.all([
+				Guild.deleteOne({ guildId: guild.id }),
+				OnboardingConfig.deleteOne({ guildId: guild.id }),
+			]);
 			logger.event(`Removed guild: ${guild.name} (${guild.id})`);
 		}
 		catch (error) {

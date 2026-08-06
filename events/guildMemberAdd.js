@@ -1,6 +1,7 @@
 import { Events } from 'discord.js';
 import { appendInviteRecord, buildInviteRecord, findInviteThatWasUsed, getStoredInviteSnapshot, snapshotGuildInvites } from '../utils/inviteTracker.js';
 import logger from '../utils/logger.js';
+import { applyNewcomerSafety, getOnboardingConfig, sendWelcomeMessage } from '../utils/onboarding.js';
 
 export default {
 	name: Events.GuildMemberAdd,
@@ -56,6 +57,18 @@ export default {
 		}
 		catch (error) {
 			logger.error(`Failed to write invite record for ${member.user.tag}: ${error.message}`);
+		}
+
+		try {
+			const settings = await getOnboardingConfig(guild.id);
+			if (settings.welcomeEnabled) await sendWelcomeMessage(member, inviteData.code);
+			const safetyResult = await applyNewcomerSafety(member, settings);
+			if (safetyResult.rolesAdded || safetyResult.alerted) {
+				logger.event(`Applied newcomer safety for ${member.user.tag}: ${safetyResult.rolesAdded} role(s), alert ${safetyResult.alerted ? 'sent' : 'not sent'}`);
+			}
+		}
+		catch (error) {
+			logger.error(`Failed to send welcome message for ${member.user.tag}: ${error.message}`);
 		}
 	},
 };

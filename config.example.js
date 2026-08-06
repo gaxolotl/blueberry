@@ -23,4 +23,11 @@ export default {
 		maxRules: 20,
 		maxPatternLength: 200,
 	},
+	onboarding: {
+		maxAutoRoles: 5,
+		maxAccountAgeDays: 3650,
+		accountAgeMinimumDays: 7,
+		welcomeMessage: 'Welcome {user} to **{server}**! You joined through {invite}.',
+		farewellMessage: '**{username}** has left **{server}**.',
+	},
 };
