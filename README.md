@@ -18,7 +18,13 @@
 - Thread based ticket system with claiming, panel, configurator and more
 - Useful utility commands
 - Quick image manipulation commands
+- Welcome panels with invite attribution and customizable message templates
+- Farewell panels for member departure announcements
+- Newcomer safety with automatic roles and account-age alerts
 - More to come!
+
+> [!NOTE]
+> The onboarding features must be configured in both places after installation: set deployment defaults and limits in `config.js`, then configure each Discord server through `/config` or the web dashboard's **Onboarding** view. Welcome/farewell channels, templates, automatic roles, and account-age alerts are stored per server in MongoDB.
 
 > [!NOTE]
 > If you do not like that AI usage is allowed in the repo feel free to fork the project as long as you abide by the [LICENSE](./LICENSE)

@@ -1247,6 +1247,64 @@ body {
 	max-height: 92vh;
 }
 
+.onboarding-view {
+	max-width: 1120px;
+}
+
+.onboarding-panel {
+	display: grid;
+	gap: 20px;
+}
+
+.onboarding-panel-heading {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: start;
+	gap: 12px;
+}
+
+.onboarding-panel-heading h2,
+.onboarding-panel-heading p {
+	margin: 0;
+}
+
+.onboarding-panel-heading p {
+	margin-top: 4px;
+	color: var(--text-muted);
+}
+
+.onboarding-grid {
+	display: grid;
+	grid-template-columns: minmax(220px, 0.7fr) minmax(320px, 1.3fr);
+	gap: 16px;
+}
+
+.onboarding-message .form-textarea {
+	min-height: 96px;
+}
+
+.onboarding-role-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 8px;
+}
+
+.onboarding-role {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 9px 10px;
+	border: 1px solid var(--border);
+	background: var(--input-bg);
+}
+
+@media (max-width: 760px) {
+	.onboarding-panel-heading,
+	.onboarding-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
 .transcript-modal-body {
 	display: flex;
 	flex: 1;

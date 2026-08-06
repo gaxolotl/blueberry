@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Ticket, UserPlus, Settings, Loader2, Megaphone, Tags, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Ticket, UserPlus, Settings, Loader2, Megaphone, Tags, ShieldCheck, Sparkles } from 'lucide-react';
 import { I18nProvider, useI18n } from './hooks/useI18n.jsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import ActivityBar from './components/ActivityBar.jsx';
@@ -13,6 +13,7 @@ import SettingsView from './views/SettingsView.jsx';
 import PatchNotesView from './views/PatchNotesView.jsx';
 import TicketAutomationView from './views/TicketAutomationView.jsx';
 import AccountPrivacyView from './views/AccountPrivacyView.jsx';
+import OnboardingView from './views/OnboardingView.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 
 const VIEWS = {
@@ -21,6 +22,7 @@ const VIEWS = {
 	invites: { labelKey: 'nav.invites', icon: UserPlus, component: InvitesView },
 	patchNotes: { labelKey: 'nav.patchNotes', icon: Megaphone, component: PatchNotesView },
 	ticketAutomation: { labelKey: 'nav.ticketAutomation', icon: Tags, component: TicketAutomationView },
+	onboarding: { labelKey: 'nav.onboarding', icon: Sparkles, component: OnboardingView },
 	settings: { labelKey: 'nav.settings', icon: Settings, component: SettingsView },
 	account: { labelKey: 'nav.account', icon: ShieldCheck, component: AccountPrivacyView },
 };

@@ -18,6 +18,8 @@ import PatchNote from '../../models/PatchNote.js';
 import { addPatchNoteSource, getPatchNoteLimits, removePatchNoteSource, updatePatchNoteSource } from '../../utils/patchNotes/config.js';
 import { parseGithubUrl, validateGithubToken } from '../../utils/patchNotes/fetcher.js';
 import { getTicketAutomationLimits, validateAutomationRules } from '../../utils/ticketSystem/autoCategorizer.js';
+import OnboardingConfig from '../../models/OnboardingConfig.js';
+import appConfig from '../../config.js';
 
 const app = new Hono();
 
@@ -126,6 +128,70 @@ app.get('/api/guilds/:guildId', async (c) => {
 });
 
 const GUILD_ALLOWED = ['language', 'manageRoleIds', 'accentColor', 'errorColor'];
+
+const ONBOARDING_ALLOWED = [
+	'welcomeEnabled',
+	'welcomeChannelId',
+	'welcomeMessage',
+	'farewellEnabled',
+	'farewellChannelId',
+	'farewellMessage',
+	'autoRoleIds',
+	'accountAgeAlertEnabled',
+	'accountAgeAlertChannelId',
+	'accountAgeMinimumDays',
+];
+
+function serializeOnboardingConfig(settings) {
+	return {
+		...settings,
+		autoRoleIds: settings.autoRoleIds ?? [],
+		limits: {
+			maxAutoRoles: appConfig.onboarding.maxAutoRoles,
+			maxAccountAgeDays: appConfig.onboarding.maxAccountAgeDays,
+		},
+	};
+}
+
+app.get('/api/guilds/:guildId/onboarding-config', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+	const settings = await OnboardingConfig.findOneAndUpdate(
+		{ guildId },
+		{ $setOnInsert: { guildId } },
+		{ upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+	).lean();
+	return c.json(serializeOnboardingConfig(settings));
+});
+
+app.patch('/api/guilds/:guildId/onboarding-config', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+	const body = await c.req.json();
+	const updates = {};
+	for (const key of ONBOARDING_ALLOWED) {
+		if (body[key] !== undefined) updates[key] = body[key];
+	}
+	if (updates.autoRoleIds && (!Array.isArray(updates.autoRoleIds) || updates.autoRoleIds.length > appConfig.onboarding.maxAutoRoles)) {
+		return c.json({ error: 'Invalid automatic roles' }, 400);
+	}
+	if (updates.accountAgeMinimumDays !== undefined && (!Number.isInteger(updates.accountAgeMinimumDays) || updates.accountAgeMinimumDays < 1 || updates.accountAgeMinimumDays > appConfig.onboarding.maxAccountAgeDays)) {
+		return c.json({ error: 'Invalid account age threshold' }, 400);
+	}
+	for (const key of ['welcomeMessage', 'farewellMessage']) {
+		if (updates[key] !== undefined && (typeof updates[key] !== 'string' || !updates[key].trim() || updates[key].length > 1000)) {
+			return c.json({ error: `Invalid ${key}` }, 400);
+		}
+	}
+	const settings = await OnboardingConfig.findOneAndUpdate(
+		{ guildId },
+		{ $set: updates },
+		{ upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+	).lean();
+	return c.json(serializeOnboardingConfig(settings));
+});
 
 app.patch('/api/guilds/:guildId', async (c) => {
 	const session = c.get('session');
