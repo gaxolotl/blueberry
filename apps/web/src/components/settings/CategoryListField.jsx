@@ -25,7 +25,7 @@ export default function CategoryListField({ field, value, onChange, resources })
 					</div>
 					<div className="category-row">
 						<input className="form-input" placeholder={t('settings.categoryDescription')} value={category.description ?? ''} onChange={(e) => updateCategory(index, 'description', e.target.value)} />
-						<select className="form-input form-input-narrow" value={category.priority ?? ''} onChange={(e) => updateCategory(index, 'priority', e.target.value || null)}>
+						<select className="form-input form-input-narrow form-select" value={category.priority ?? ''} onChange={(e) => updateCategory(index, 'priority', e.target.value || null)}>
 							<option value="">—</option>
 							<option value="low">{t('settings.priorityLow')}</option>
 							<option value="medium">{t('settings.priorityMedium')}</option>

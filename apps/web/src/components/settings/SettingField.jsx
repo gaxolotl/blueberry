@@ -46,7 +46,7 @@ export function NumberField({ field, value, onChange }) {
 	return (
 		<Field label={t(field.labelKey)}>
 			<input
-				className="form-input form-input-narrow"
+				className="form-input form-input-narrow form-select"
 				type="number"
 				min={field.min}
 				value={value ?? 0}

@@ -21,7 +21,7 @@ export default function DeviceSettingsPanel({ onClose }) {
 						{t('device.language')}
 					</label>
 					<select
-						className="form-input form-input-narrow"
+						className="form-input form-input-narrow form-select"
 						value={prefs.language}
 						onChange={(e) => setPref('language', e.target.value)}
 					>
@@ -35,7 +35,7 @@ export default function DeviceSettingsPanel({ onClose }) {
 						{t('device.theme')}
 					</label>
 					<select
-						className="form-input form-input-narrow"
+						className="form-input form-input-narrow form-select"
 						value={prefs.theme}
 						onChange={(e) => setPref('theme', e.target.value)}
 					>
