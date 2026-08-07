@@ -4,14 +4,7 @@ import { emojis } from '../emoji.js';
 import { BUTTON_PREFIX } from './constants.js';
 import { getAccentColor } from '../color.js';
 
-/**
- * Builds a ticket thread name from the configurable template.
- * Available variables: {category}, {username}, {priority}, {id}
- * @param {import('discord.js').BaseGuildTextChannel} threadChannel
- * @param {import('mongoose').Document} ticketConfig
- * @param {object} ticket
- * @param {import('discord.js').User} opener
- */
+// Builds a ticket thread name from a template with {category}, {username}, {priority}, {id} variables
 export function buildThreadName(threadChannel, ticketConfig, ticket, opener) {
 	const template = ticketConfig.threadNameTemplate || '{category} - {username}';
 
@@ -27,21 +20,14 @@ export function buildThreadName(threadChannel, ticketConfig, ticket, opener) {
 	return name || 'ticket';
 }
 
-/**
- * @param {import('discord.js').GuildMember} member
- * @param {import('mongoose').Document} ticketConfig
- * @param {import('mongoose').Document | null} ticket
- */
 export function canManageTicket(member, ticketConfig, ticket) {
 	if (member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
 	if (member.permissions.has(PermissionFlagsBits.ManageChannels)) return true;
 	if (ticket && member.id === ticket.openerId) return true;
 
-	// Global support roles
 	if (ticketConfig.supportRoleIds.some(roleId => member.roles.cache.has(roleId))) return true;
 	if (ticket?.assignedRoleId && member.roles.cache.has(ticket.assignedRoleId)) return true;
 
-	// Per-category support roles
 	if (ticket) {
 		const category = ticketConfig.categories?.find(entry => entry.id === ticket.categoryId);
 		if (category?.supportRoleIds?.some(roleId => member.roles.cache.has(roleId))) return true;
@@ -50,12 +36,6 @@ export function canManageTicket(member, ticketConfig, ticket) {
 	return false;
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {import('mongoose').Document} ticketConfig
- * @param {import('mongoose').Document} ticket
- * @returns {Promise<void>}
- */
 export async function sendLogNotification(guild, ticketConfig, ticket) {
 	if (!ticketConfig.logChannelId) return;
 
@@ -103,11 +83,6 @@ export async function sendLogNotification(guild, ticketConfig, ticket) {
 	});
 }
 
-/**
- * @param {import('discord.js').ThreadChannel} thread
- * @param {import('mongoose').Document} ticket
- * @param {import('discord.js').User} opener
- */
 export async function buildThreadWelcomeContainer(guildId, ticket) {
 	const welcomeUnclaimed = await t(guildId, 'ticket_welcome_unclaimed');
 	const claimedByText = ticket.claimedBy ? `<@${ticket.claimedBy}>` : welcomeUnclaimed;

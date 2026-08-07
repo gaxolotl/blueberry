@@ -7,10 +7,6 @@ import { getAccentColor, getErrorColor } from '../color.js';
 import { buildTextContainer, replyContainer, getTicketConfig, updateTicketConfig } from './config.js';
 import { sendTicketPanel, refreshTicketPanel } from './panel.js';
 
-/**
- * @param {string} guildId
- * @returns {Promise<import('discord.js').ActionRowBuilder>}
- */
 async function buildBackRow(guildId) {
 	const backLabel = await t(guildId, 'ticket_cfg_back_btn');
 	return new ActionRowBuilder().addComponents(
@@ -18,11 +14,6 @@ async function buildBackRow(guildId) {
 	);
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigHomeContainer(guildId, ticketConfig) {
 	const notSet = await t(guildId, 'ticket_cfg_not_set');
 	const notSent = await t(guildId, 'ticket_cfg_not_sent');
@@ -102,11 +93,6 @@ async function buildConfigHomeContainer(guildId, ticketConfig) {
 		);
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigChannelsContainer(guildId, ticketConfig) {
 	const notSet = await t(guildId, 'ticket_cfg_not_set');
 	const threadChanText = await t(guildId, 'ticket_cfg_thread_chan', { channel: ticketConfig.threadChannelId ? `<#${ticketConfig.threadChannelId}>` : notSet });
@@ -173,11 +159,6 @@ async function buildConfigChannelsContainer(guildId, ticketConfig) {
 		.addActionRowComponents(backRow);
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigPanelContainer(guildId, ticketConfig) {
 	const notSent = await t(guildId, 'ticket_cfg_not_sent');
 	const panelChanText = await t(guildId, 'ticket_cfg_panel_chan', { channel: ticketConfig.panelChannelId ? `<#${ticketConfig.panelChannelId}>` : notSent });
@@ -223,11 +204,6 @@ async function buildConfigPanelContainer(guildId, ticketConfig) {
 		.addActionRowComponents(backRow);
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 	const backRow = await buildBackRow(guildId);
 	const termCategories = await t(guildId, 'term_categories');
@@ -279,11 +255,6 @@ async function buildConfigCategoriesContainer(guildId, ticketConfig) {
 	return container;
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigRolesContainer(guildId, ticketConfig) {
 	const supportRolesTerm = await t(guildId, 'term_support_roles');
 	const supportRolesPlaceholder = await t(guildId, 'ticket_cfg_support_roles_placeholder');
@@ -319,11 +290,6 @@ async function buildConfigRolesContainer(guildId, ticketConfig) {
 		.addActionRowComponents(backRow);
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigLimitContainer(guildId, ticketConfig) {
 	const ticketLimitDescription = await t(guildId, 'ticket_cfg_ticket_limit_desc');
 	const select = new StringSelectMenuBuilder()
@@ -348,11 +314,6 @@ async function buildConfigLimitContainer(guildId, ticketConfig) {
 		.addActionRowComponents(backRow);
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function buildConfigAdvancedContainer(guildId, ticketConfig) {
 	const backRow = await buildBackRow(guildId);
 	const termAdvanced = await t(guildId, 'ticket_cfg_nav_advanced');
@@ -400,12 +361,6 @@ async function buildConfigAdvancedContainer(guildId, ticketConfig) {
 		.addActionRowComponents(backRow);
 }
 
-/**
- * @param {string} page
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 async function renderConfigPage(page, guildId, ticketConfig) {
 	switch (page) {
 	case 'channels': return buildConfigChannelsContainer(guildId, ticketConfig);
@@ -418,10 +373,6 @@ async function renderConfigPage(page, guildId, ticketConfig) {
 	}
 }
 
-/**
- * @param {import('discord.js').ButtonInteraction} interaction
- * @param {import('mongoose').Document} ticketConfig
- */
 async function handlePanelTextModal(interaction, ticketConfig) {
 	const modal = new ModalBuilder()
 		.setCustomId(`${CONFIG_PREFIX}:panel:modal`)
@@ -471,11 +422,6 @@ async function handlePanelTextModal(interaction, ticketConfig) {
 	await submitted.update({ components: [panelContainer] });
 }
 
-/**
- * @param {import('discord.js').ButtonInteraction} interaction
- * @param {import('mongoose').Document} ticketConfig
- * @param {number} slot
- */
 async function handleCategoryModal(interaction, ticketConfig, slot) {
 	if (slot - 1 > ticketConfig.categories.length) {
 		await interaction.reply({
@@ -547,10 +493,6 @@ async function handleCategoryModal(interaction, ticketConfig, slot) {
 	await submitted.update({ components: [categoriesContainer] });
 }
 
-/**
- * @param {string} label
- * @returns {string}
- */
 export function slugifyCategoryId(label) {
 	return label
 		.toLowerCase()
@@ -560,10 +502,6 @@ export function slugifyCategoryId(label) {
 		.slice(0, 32) || 'category';
 }
 
-/**
- * @param {import('discord.js').MessageComponentInteraction} interaction
- * @param {import('mongoose').Document} ticketConfig
- */
 async function handleConfigComponent(interaction, ticketConfig) {
 	if (interaction.customId === `${CONFIG_PREFIX}:nav`) {
 		const pageContainer = await renderConfigPage(interaction.values[0], interaction.guildId, ticketConfig);
@@ -722,10 +660,6 @@ async function handleConfigComponent(interaction, ticketConfig) {
 	}
 }
 
-/**
- * Opens the interactive, page-based ticket configuration dashboard for an admin.
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
 export async function startConfigSession(interaction) {
 	let ticketConfig = await getTicketConfig(interaction.guildId);
 	const configHome = await buildConfigHomeContainer(interaction.guildId, ticketConfig);

@@ -50,7 +50,6 @@ function AppContent() {
 	const [selectedGuildId, setSelectedGuildId] = useState(null);
 	const [apiStatus, setApiStatus] = useState('connecting');
 
-	// Use the session's guilds (with names/icons) directly
 	const guilds = user?.guilds ?? [];
 
 	useEffect(() => {

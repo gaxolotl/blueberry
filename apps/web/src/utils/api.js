@@ -9,12 +9,6 @@ export function authHeaders(extra = {}) {
 	return headers;
 }
 
-/**
- * Fetch wrapper that attaches the session token and surfaces server errors.
- * @param {string} path
- * @param {RequestInit} [options]
- * @returns {Promise<any>}
- */
 export async function apiFetch(path, options = {}) {
 	const res = await fetch(path, {
 		...options,

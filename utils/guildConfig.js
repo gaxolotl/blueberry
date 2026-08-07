@@ -36,7 +36,6 @@ async function buildConfigHomeContainer(guildConfig) {
 	const guildId = guildConfig.guildId;
 	const color = await getAccentColor(guildId);
 
-	// Resolve all strings first
 	const currentLangDisplay = guildConfig.language === 'bg' ? '🇧🇬 Bulgarian (bg)' : '🇬🇧 English (en)';
 	const title = await t(guildId, 'config_home_title');
 	const body = await t(guildId, 'config_home_body', { currentLang: currentLangDisplay });
@@ -144,7 +143,6 @@ async function buildConfigLangContainer(guildConfig) {
 	const guildId = guildConfig.guildId;
 	const color = await getAccentColor(guildId);
 
-	// Resolve all strings first
 	const title = await t(guildId, 'config_lang_title');
 	const body = await t(guildId, 'config_lang_body');
 	const placeholder = await t(guildId, 'config_lang_select_placeholder');

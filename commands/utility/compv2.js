@@ -14,16 +14,11 @@ export default {
 			{ name: 'notes.txt' },
 		);
 
-		// ---- 1. TextDisplay ---------------------------------------------------
-		// Freestanding markdown text. Supports headers, bold, lists, links, etc.
 		const heading = new TextDisplayBuilder().setContent(
 			'# Components V2 Showcase\n' +
 			'-# every builder in one message, generated on demand',
 		);
 
-		// ---- 2. Section + Thumbnail accessory ----------------------------------
-		// A Section pairs one-to-three TextDisplays with a single accessory:
-		// either a Thumbnail or a Button.
 		const thumbnailSection = new SectionBuilder()
 			.addTextDisplayComponents(
 				new TextDisplayBuilder().setContent(
@@ -38,7 +33,6 @@ export default {
 					.setSpoiler(false),
 			);
 
-		// ---- 3. Section + Button accessory --------------------------------------
 		const buttonSection = new SectionBuilder()
 			.addTextDisplayComponents(
 				new TextDisplayBuilder().setContent(
@@ -53,8 +47,6 @@ export default {
 					.setStyle(ButtonStyle.Primary),
 			);
 
-		// ---- 4. Separator -------------------------------------------------------
-		// Adds vertical spacing, optionally with a visible divider line.
 		const bigSeparator = new SeparatorBuilder()
 			.setDivider(true)
 			.setSpacing(SeparatorSpacingSize.Large);
@@ -63,8 +55,6 @@ export default {
 			.setDivider(false)
 			.setSpacing(SeparatorSpacingSize.Small);
 
-		// ---- 5. MediaGallery ------------------------------------------------------
-		// Displays up to 10 images/videos in a gallery grid.
 		const gallery = new MediaGalleryBuilder()
 			.addItems(
 				(mediaGalleryItem) => mediaGalleryItem
@@ -85,12 +75,9 @@ export default {
 					.setURL('https://raw.githubusercontent.com/gaxolotl/gaxolotl.github.io/refs/heads/main/Discord-Banner_8.png'),
 			);
 
-		// ---- 6. File component ------------------------------------------------
-		// Renders an uploaded attachment as a downloadable file block.
-		// Must reference an attachment on the same message via attachment://.
+		// File components must reference an attachment on the same message via attachment://
 		const fileDisplay = new FileBuilder().setURL('attachment://notes.txt');
 
-		// ---- 7. ActionRow with Buttons ------------------------------------------
 		const buttonRow = new ActionRowBuilder().addComponents(
 			new ButtonBuilder().setCustomId('showcase_primary').setLabel('Primary').setStyle(ButtonStyle.Primary),
 			new ButtonBuilder().setCustomId('showcase_secondary').setLabel('Secondary').setStyle(ButtonStyle.Secondary),
@@ -99,7 +86,6 @@ export default {
 			new ButtonBuilder().setLabel('Link').setStyle(ButtonStyle.Link).setURL('https://discord.com'),
 		);
 
-		// ---- 8. ActionRow with a StringSelectMenu --------------------------------
 		const selectRow = new ActionRowBuilder().addComponents(
 			new StringSelectMenuBuilder()
 				.setCustomId('showcase_select')
@@ -113,9 +99,7 @@ export default {
 				),
 		);
 
-		// ---- 9. Nested Container ------------------------------------------------
-		// A second, differently-accented Container nested inside the top-level
-		// components array to show that containers can be stacked in one message.
+		// Containers can be stacked in a single message
 		const nestedContainer = new ContainerBuilder()
 			.setAccentColor(await getAccentColor(interaction.guildId))
 			.setSpoiler(false)
@@ -123,7 +107,6 @@ export default {
 				new TextDisplayBuilder().setContent('A **second Container**, its own accent color and border.'),
 			);
 
-		// ---- Assemble the primary Container --------------------------------------
 		const container = new ContainerBuilder()
 			.setAccentColor(await getAccentColor(interaction.guildId))
 			.setSpoiler(false)

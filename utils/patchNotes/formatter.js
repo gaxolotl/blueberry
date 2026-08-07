@@ -3,11 +3,6 @@ import { getAccentColor, getErrorColor } from '../color.js';
 import { emojis } from '../emoji.js';
 import { t } from '../i18n.js';
 
-/**
- * Strips HTML tags from a string for clean Discord markdown display.
- * @param {string} html
- * @returns {string}
- */
 const HTML_ENTITIES = {
 	'amp': '&',
 	'lt': '<',
@@ -24,11 +19,6 @@ function stripHtml(html) {
 		.trim();
 }
 
-/**
- * Formats a file size in bytes to a human-readable string.
- * @param {number} bytes
- * @returns {string}
- */
 function formatBytes(bytes) {
 	if (!bytes) return '';
 	if (bytes < 1024) return `${bytes} B`;
@@ -36,13 +26,6 @@ function formatBytes(bytes) {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/**
- * Builds a Components V2 container for a single patch note.
- * @param {string} guildId
- * @param {object} note
- * @param {object} options
- * @returns {Promise<ContainerBuilder>}
- */
 export async function buildPatchNoteContainer(guildId, note, options = {}) {
 	const { showDownloads = true, showChangelog = true, mentionRoleId = null } = options;
 	const color = await getAccentColor(guildId);
@@ -104,13 +87,6 @@ export async function buildPatchNoteContainer(guildId, note, options = {}) {
 	return container;
 }
 
-/**
- * Builds a simple text container for errors/status.
- * @param {string} guildId
- * @param {string} content
- * @param {boolean} [isError]
- * @returns {Promise<ContainerBuilder>}
- */
 export async function buildPatchNoteTextContainer(guildId, content, isError = false) {
 	const color = isError ? await getErrorColor(guildId) : await getAccentColor(guildId);
 	return new ContainerBuilder()

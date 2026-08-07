@@ -35,7 +35,6 @@ export default {
 
 		schedulePatchNotePolling(client);
 
-		// Periodically auto-close stale tickets while the bot is running
 		setInterval(async () => {
 			for (const guild of client.guilds.cache.values()) {
 				try {

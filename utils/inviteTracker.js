@@ -62,12 +62,6 @@ function buildInviteRecord(member, guild, inviteData) {
 	};
 }
 
-/**
- * Fetch recent invite join records for a single guild.
- * @param {string} guildId - Discord guild snowflake ID.
- * @param {number} [limit=10] - Maximum number of records to return.
- * @returns {Promise<object[]>}
- */
 async function getRecentInviteRecords(guildId, limit = 10) {
 	return InviteJoin.find({ guildId })
 		.sort({ joinedAt: -1 })
@@ -75,11 +69,6 @@ async function getRecentInviteRecords(guildId, limit = 10) {
 		.lean();
 }
 
-/**
- * Persist a new invite join record for the guild it belongs to.
- * @param {object} record - Invite record built by buildInviteRecord().
- * @returns {Promise<object>}
- */
 async function appendInviteRecord(record) {
 	return InviteJoin.create(record);
 }

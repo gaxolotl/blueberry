@@ -4,10 +4,6 @@ import { BUTTON_PREFIX, CATEGORY_BUTTON_STYLES } from './constants.js';
 import { updateTicketConfig } from './config.js';
 import { getAccentColor } from '../color.js';
 
-/**
- * @param {string | null | undefined} emoji
- * @returns {string | { id: string, name: string } | null}
- */
 function parseButtonEmoji(emoji) {
 	if (!emoji) return null;
 	const custom = emoji.match(/^<a?:([\w~]+):(\d+)>$/);
@@ -15,11 +11,6 @@ function parseButtonEmoji(emoji) {
 	return emoji;
 }
 
-/**
- * @param {string} guildId
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<import('discord.js').ContainerBuilder>}
- */
 export async function buildPanelContainer(guildId, ticketConfig) {
 	let categoryLines;
 	if (ticketConfig.categories.length) {
@@ -60,10 +51,6 @@ export async function buildPanelContainer(guildId, ticketConfig) {
 		);
 }
 
-/**
- * @param {import('mongoose').Document} ticketConfig
- * @returns {import('discord.js').ActionRowBuilder | null}
- */
 export function buildCategoryButtonRow(ticketConfig) {
 	if (!ticketConfig.categories.length) return null;
 
@@ -82,11 +69,6 @@ export function buildCategoryButtonRow(ticketConfig) {
 	return new ActionRowBuilder().addComponents(buttons);
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {import('discord.js').TextChannel} channel
- * @param {import('mongoose').Document} ticketConfig
- */
 export async function sendTicketPanel(guild, channel, ticketConfig) {
 	if (!ticketConfig.categories.length) {
 		const errCategoryMissing = await t(guild.id, 'ticket_err_category_missing');
@@ -110,10 +92,6 @@ export async function sendTicketPanel(guild, channel, ticketConfig) {
 	return message;
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {import('mongoose').Document} ticketConfig
- */
 export async function refreshTicketPanel(guild, ticketConfig) {
 	if (!ticketConfig.panelChannelId || !ticketConfig.panelMessageId) {
 		const errPanelNotSent = await t(guild.id, 'ticket_err_panel_not_sent');

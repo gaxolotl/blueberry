@@ -24,11 +24,6 @@ export function getPatchNoteLimits() {
 	};
 }
 
-/**
- * Gets (or creates) the patch note config for a guild.
- * @param {string} guildId
- * @returns {Promise<import('mongoose').Document>}
- */
 export async function getPatchNoteConfig(guildId) {
 	let config = await PatchNoteConfig.findOne({ guildId });
 	if (!config) {
@@ -37,12 +32,6 @@ export async function getPatchNoteConfig(guildId) {
 	return config;
 }
 
-/**
- * Updates the patch note config for a guild.
- * @param {string} guildId
- * @param {object} updates
- * @returns {Promise<import('mongoose').Document>}
- */
 export async function updatePatchNoteConfig(guildId, updates) {
 	return PatchNoteConfig.findOneAndUpdate(
 		{ guildId },
@@ -51,12 +40,6 @@ export async function updatePatchNoteConfig(guildId, updates) {
 	);
 }
 
-/**
- * Adds a new source to a guild's patch note config.
- * @param {string} guildId
- * @param {object} source
- * @returns {Promise<import('mongoose').Document>}
- */
 export async function addPatchNoteSource(guildId, source) {
 	const config = await getPatchNoteConfig(guildId);
 	const limitKey = SOURCE_LIMIT_KEYS[source.type];
@@ -74,12 +57,6 @@ export async function addPatchNoteSource(guildId, source) {
 	return config;
 }
 
-/**
- * Removes a source from a guild's patch note config.
- * @param {string} guildId
- * @param {string} sourceId
- * @returns {Promise<import('mongoose').Document>}
- */
 export async function removePatchNoteSource(guildId, sourceId) {
 	const config = await getPatchNoteConfig(guildId);
 	config.sources = config.sources.filter(source => source.id !== sourceId);
@@ -87,13 +64,6 @@ export async function removePatchNoteSource(guildId, sourceId) {
 	return config;
 }
 
-/**
- * Updates an existing patch-note source without exposing or clearing its token implicitly.
- * @param {string} guildId
- * @param {string} sourceId
- * @param {object} updates
- * @returns {Promise<import('mongoose').Document|null>}
- */
 export async function updatePatchNoteSource(guildId, sourceId, updates) {
 	const config = await getPatchNoteConfig(guildId);
 	const source = config.sources.find(item => item.id === sourceId);

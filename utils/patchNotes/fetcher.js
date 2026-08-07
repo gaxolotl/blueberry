@@ -16,12 +16,6 @@ function getXmlText(value) {
 	return null;
 }
 
-/**
- * Normalizes a single RSS/Atom entry into a patch note object.
- * @param {object} entry
- * @param {string} sourceLabel
- * @returns {object|null}
- */
 function normalizeRssEntry(entry, sourceLabel) {
 	if (!entry) return null;
 
@@ -44,12 +38,6 @@ function normalizeRssEntry(entry, sourceLabel) {
 	};
 }
 
-/**
- * Fetches and parses an RSS/Atom feed into patch note objects.
- * @param {string} url
- * @param {string} sourceLabel
- * @returns {Promise<Array<object>>}
- */
 export async function fetchRssFeed(url, sourceLabel) {
 	const res = await fetch(url, {
 		headers: { 'User-Agent': 'Blueberry-PatchNotes/1.0' },
@@ -89,13 +77,6 @@ export async function fetchRssFeed(url, sourceLabel) {
 		.filter(Boolean);
 }
 
-/**
- * Fetches the latest GitHub releases for a repository.
- * @param {string} owner
- * @param {string} repo
- * @param {string|null} token
- * @returns {Promise<Array<object>>}
- */
 export async function fetchGithubReleases(owner, repo, token) {
 	const headers = { 'User-Agent': 'Blueberry-PatchNotes/1.0', Accept: 'application/vnd.github+json' };
 	const githubToken = token || null;
@@ -139,13 +120,6 @@ export async function fetchGithubReleases(owner, repo, token) {
 	}));
 }
 
-/**
- * Verifies that a GitHub token can read the configured repository.
- * @param {string} owner
- * @param {string} repo
- * @param {string} token
- * @returns {Promise<void>}
- */
 export async function validateGithubToken(owner, repo, token) {
 	if (!token) throw new Error('A GitHub access token is required');
 	const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
@@ -163,11 +137,6 @@ export async function validateGithubToken(owner, repo, token) {
 	}
 }
 
-/**
- * Parses a GitHub repo URL (https://github.com/owner/repo) into owner/repo.
- * @param {string} url
- * @returns {{ owner: string, repo: string } | null}
- */
 export function parseGithubUrl(url) {
 	if (!url) return null;
 	const match = url.match(/^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/?#]+)\/?(?:[?#].*)?$/i);
@@ -175,11 +144,6 @@ export function parseGithubUrl(url) {
 	return { owner: match[1], repo: match[2].replace(/\.git$/, '') };
 }
 
-/**
- * Fetches patch notes from a single configured source.
- * @param {object} source
- * @returns {Promise<Array<object>>}
- */
 export async function fetchSource(source) {
 	if (source.type === 'github') {
 		const parsed = parseGithubUrl(source.url);

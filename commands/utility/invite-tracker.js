@@ -68,7 +68,6 @@ export default {
 			});
 		}
 
-		// Handle conditional plural string parsing for the header
 		const countStr = latest.length.toString();
 		const subtitleKey = latest.length === 1 ? 'invites_recent_joins_singular' : 'invites_recent_joins_plural';
 		const resolvedSubtitle = await t(guildId, subtitleKey, { count: countStr });
@@ -84,7 +83,6 @@ export default {
 				),
 			);
 
-		// Using a for...of loop allows synchronous await cycles across async translations safely
 		for (const record of latest) {
 			container.addSeparatorComponents(separator =>
 				separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true),

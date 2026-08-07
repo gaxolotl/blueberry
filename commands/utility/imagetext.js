@@ -328,23 +328,19 @@ export default {
 				centerVertical,
 			});
 
-			// 1. Resolve text formatting styles dynamically
 			const stylingDetails = [];
 			if (bold) stylingDetails.push(await t(guildId, 'term_bold'));
 			if (italic) stylingDetails.push(await t(guildId, 'term_italic'));
 			if (underlined) stylingDetails.push(await t(guildId, 'term_underlined'));
 			const stylingString = stylingDetails.length > 0 ? stylingDetails.join(' • ') : await t(guildId, 'term_normal');
 
-			// 2. Resolve Stroke details dynamic text
 			const strokeDetails = stroke
 				? await t(guildId, 'term_enabled', { color: normalizeHex(strokeColor), size: strokeSize })
 				: await t(guildId, 'term_disabled');
 
-			// 3. Resolve positioning strings
 			const hPositionDisplay = centerHorizontal ? await t(guildId, 'term_centered') : `${horizontal}px`;
 			const vPositionDisplay = centerVertical ? await t(guildId, 'term_centered') : `${vertical}px`;
 
-			// 4. Build output details panel using localization strings
 			const generatedAttachment = new AttachmentBuilder(outputBuffer, { name: 'overlay.png' });
 			const container = new ContainerBuilder()
 				.setAccentColor(await getAccentColor(guildId))
@@ -379,7 +375,6 @@ export default {
 				)
 				.addFileComponents(new FileBuilder().setURL('attachment://overlay.png'));
 
-			// Resolving final components inside editReply
 			await interaction.editReply({
 				components: [container],
 				files: [generatedAttachment],
@@ -389,10 +384,8 @@ export default {
 		catch (error) {
 			logger.error('Failed to render image overlay:', error);
 
-			// Safely fall back to the error's localized message, otherwise use a translated fallback error body
 			const rawErrorMsg = error?.message || await t(guildId, 'error_generic');
 
-			// tError wraps raw text inside the error master template automatically
 			const errorText = await tError(guildId, rawErrorMsg, {}, true);
 
 			const errorContainer = new ContainerBuilder()

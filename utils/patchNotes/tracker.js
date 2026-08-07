@@ -9,12 +9,6 @@ import config from '../../config.js';
 
 const patchConfig = config.patchNotes ?? {};
 
-/**
- * Returns only the newest unseen note and advances over older backlog entries.
- * @param {Array<object>} notes
- * @param {object} source
- * @returns {{ latest: object|null, fetchedGuids: string[], shouldQueue: boolean }}
- */
 export function selectLatestUnseenNote(notes, source) {
 	if (!notes.length) return { latest: null, fetchedGuids: [], shouldQueue: false };
 	const sortedNotes = [...notes].sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
@@ -37,12 +31,6 @@ async function mapWithConcurrency(items, concurrency, worker) {
 	await Promise.all(workers);
 }
 
-/**
- * Publishes a single patch note to the configured channel.
- * @param {import('discord.js').Client} client
- * @param {object} guildConfig
- * @param {object} note
- */
 async function publishNote(client, guildConfig, note) {
 	const guild = await client.guilds.fetch(guildConfig.guildId).catch(() => null);
 	if (!guild) throw new Error(`Guild ${guildConfig.guildId} is unavailable`);
@@ -123,10 +111,6 @@ async function pollSource(guildConfig, source) {
 	}
 }
 
-/**
- * Polls one guild and queues at most the newest unseen item from each source.
- * @param {object} guildConfig
- */
 export async function pollGuildPatchNotes(guildConfig) {
 	if (!guildConfig.enabled || !guildConfig.channelId || !guildConfig.sources?.length) return;
 	await Promise.all(guildConfig.sources.map(source => pollSource(guildConfig, source)));
@@ -183,10 +167,6 @@ async function deliverNextQueuedNote(client) {
 	return true;
 }
 
-/**
- * Delivers a bounded number of queued notes with atomic claims and retry backoff.
- * @param {import('discord.js').Client} client
- */
 export async function publishQueuedPatchNotes(client) {
 	let remaining = patchConfig.maxDeliveriesPerCycle ?? 50;
 	const concurrency = patchConfig.deliveryConcurrency ?? 3;
@@ -199,10 +179,6 @@ export async function publishQueuedPatchNotes(client) {
 	await Promise.all(workers);
 }
 
-/**
- * Polls all enabled guilds and then drains the persistent delivery queue.
- * @param {import('discord.js').Client} client
- */
 export async function pollAllPatchNotes(client) {
 	const guildConfigs = await PatchNoteConfig.find({ enabled: true, channelId: { $ne: null } });
 	await mapWithConcurrency(
@@ -229,10 +205,6 @@ export async function pollAllPatchNotes(client) {
 	});
 }
 
-/**
- * Schedules patch-note discovery and delivery.
- * @param {import('discord.js').Client} client
- */
 export function schedulePatchNotePolling(client) {
 	let polling = false;
 	const poll = async () => {

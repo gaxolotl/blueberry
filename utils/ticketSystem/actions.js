@@ -32,10 +32,6 @@ async function collectIssueDescription(interaction) {
 	}).catch(() => null);
 }
 
-/**
- * @param {import('discord.js').ButtonInteraction} interaction
- * @param {string} categoryId
- */
 async function handleOpenTicket(interaction, categoryId) {
 	if (!interaction.inGuild()) {
 		const errNotGuild = await t(interaction.guildId, 'ticket_err_not_guild');
@@ -139,10 +135,6 @@ async function handleOpenTicket(interaction, categoryId) {
 	}
 }
 
-/**
- * @param {import('discord.js').ButtonInteraction} interaction
- * @param {string} threadId
- */
 async function handleJoinTicket(interaction, threadId) {
 	if (!interaction.inGuild()) {
 		const errNotGuild = await t(interaction.guildId, 'ticket_err_not_guild');
@@ -178,10 +170,6 @@ async function handleJoinTicket(interaction, threadId) {
 	}
 }
 
-/**
- * @param {import('discord.js').ButtonInteraction} interaction
- * @param {string} threadId
- */
 async function handleCloseTicketButton(interaction, threadId) {
 	if (!interaction.inGuild()) {
 		const errNotGuild = await t(interaction.guildId, 'ticket_err_not_guild');
@@ -231,10 +219,6 @@ async function handleCloseTicketButton(interaction, threadId) {
 	});
 }
 
-/**
- * @param {import('discord.js').ButtonInteraction} interaction
- * @param {string} threadId
- */
 async function handleConfirmClose(interaction, threadId) {
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 	await closeTicket(interaction, threadId, interaction.user.id);
@@ -246,12 +230,6 @@ async function handleIssueResolved(interaction, threadId) {
 	await closeTicket(interaction, threadId, interaction.user.id, reason);
 }
 
-/**
- * @param {import('discord.js').Interaction} interaction
- * @param {string} threadId
- * @param {string} closedById
- * @param {string | null} [reason]
- */
 export async function closeTicket(interaction, threadId, closedById, reason = null) {
 	if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -269,7 +247,6 @@ export async function closeTicket(interaction, threadId, closedById, reason = nu
 		return replyContainer(interaction, buildTextContainer(`${errorEmoji} **Error:** ${errNoPermission}`, await getErrorColor(interaction.guildId)));
 	}
 
-	// Require a close reason if configured
 	if (ticketConfig.requireCloseReason && !reason) {
 		const errReasonRequired = await t(interaction.guildId, 'ticket_err_reason_required');
 		return replyContainer(interaction, buildTextContainer(`${errorEmoji} **Error:** ${errReasonRequired}`, await getErrorColor(interaction.guildId)));
@@ -287,7 +264,6 @@ export async function closeTicket(interaction, threadId, closedById, reason = nu
 	ticket.closeReason = reason;
 	await ticket.save();
 
-	// Save transcript before archiving
 	await saveTranscript(interaction.guild, ticketConfig, ticket);
 
 	const closeNoticeTitle = await t(interaction.guildId, 'ticket_close_notice_title', { emoji: emojis.x_ });
@@ -340,9 +316,6 @@ export async function closeTicket(interaction, threadId, closedById, reason = nu
 	}
 }
 
-/**
- * @param {import('discord.js').Interaction} interaction
- */
 export async function handleTicketButton(interaction) {
 	if (!interaction.isButton()) return false;
 
@@ -377,10 +350,6 @@ export async function handleTicketButton(interaction) {
 	return true;
 }
 
-/**
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- * @returns {Promise<import('mongoose').Document | null>}
- */
 export async function getActiveTicketFromInteraction(interaction) {
 	if (!interaction.channel?.isThread()) {
 		const errNotThread = await t(interaction.guildId, 'ticket_err_command_not_thread');

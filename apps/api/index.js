@@ -65,7 +65,6 @@ app.get('/api/me', async (c) => {
 	const session = c.get('session');
 	const guilds = await fetchManageableGuilds(session.accessToken);
 
-	// Keep the cached data up to date
 	await Session.updateOne(
 		{ token: session.token },
 		{ $set: { guilds } },
@@ -79,18 +78,14 @@ app.get('/api/me', async (c) => {
 });
 
 // ---- Guild access helper ----
-// Verifies the user can manage a guild. Handles both ManageGuild permission
-// and manageRoleIds (checked against Discord's guild member roles API).
 async function canAccessGuild(session, guildId) {
 	const guildEntry = session.guilds.find(g => g.id === guildId);
 	if (!guildEntry) return false;
 
-	// ManageGuild permission or guild ownership → direct access
 	if ((BigInt(guildEntry.permissions) & 0x20n) !== 0n || guildEntry.owner) {
 		return true;
 	}
 
-	// Check manageRoleIds via the bot API if the guild has them configured
 	const guild = await Guild.findOne({ guildId }, { manageRoleIds: 1 }).lean();
 	if (!guild || !guild.manageRoleIds?.length) {
 		return false;

@@ -215,11 +215,6 @@ function renderMessage(entry, previousEntry) {
 	return `<article class="message${compact ? ' compact' : ''}">${reply}<div class="avatar">${avatar ? `<img src="${avatar}" alt="">` : displayName.slice(0, 1)}</div><div class="message-body"><header><strong>${displayName}</strong>${entry.authorBot ? '<span class="bot">APP</span>' : ''}<time>${escapeHtml(timestamp)}</time></header>${entry.content ? `<div class="content">${renderContent(entry.content)}</div>` : ''}${media}${embeds}${components}${stickers}</div></article>`;
 }
 
-/**
- * Builds a standalone Discord-style HTML transcript using Discord CDN URLs for media.
- * @param {object} ticket
- * @returns {string}
- */
 export function buildTranscriptHtml(ticket) {
 	const messages = ticket.transcript ?? [];
 	const channelName = escapeHtml(ticket.transcriptChannelName || `ticket-${ticket.threadId}`);

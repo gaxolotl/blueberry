@@ -12,10 +12,8 @@ async function buildErrorContainer(guildId, content) {
 }
 
 async function requireAdmin(interaction) {
-	// Owner always passes
 	if (interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) return true;
 
-	// Check custom manage roles set via /config or dashboard
 	const guildConfig = await Guild.findOne({ guildId: interaction.guildId }, { manageRoleIds: 1 }).lean();
 	const allowedIds = guildConfig?.manageRoleIds ?? [];
 	if (allowedIds.length > 0 && interaction.member.roles.cache.some(r => allowedIds.includes(r.id))) return true;

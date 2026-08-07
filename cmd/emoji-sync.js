@@ -8,12 +8,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const EMOJI_JS_PATH = path.join(__dirname, '..', 'utils', 'emoji.js');
 
-/**
- * Downloads the binary data of an emoji image from Discord's CDN.
- * @param {string} emojiId - The Discord emoji ID.
- * @param {boolean} animated - Whether the emoji is animated.
- * @returns {Promise<Buffer|null>}
- */
 async function fetchEmojiImage(emojiId, animated) {
 	const ext = animated ? 'gif' : 'webp';
 	const url = `https://cdn.discordapp.com/emojis/${emojiId}.${ext}`;
@@ -31,9 +25,7 @@ async function fetchEmojiImage(emojiId, animated) {
 	return null;
 }
 
-/**
- * Restarts the process so fresh emoji IDs load into memory.
- */
+// Restart so the freshly-written emoji IDs are loaded into memory
 function restartProcess() {
 	logger.info('Restarting bot to load updated emoji IDs...');
 	process.on('exit', () => {
@@ -46,10 +38,6 @@ function restartProcess() {
 	process.exit(0);
 }
 
-/**
- * Synchronizes custom application emojis in utils/emoji.js with Discord's Application Emojis API.
- * @param {string} token - The Discord Bot Token.
- */
 export async function runSync(token) {
 	const enabled = (process.env.EMOJI_SYNC || 'true').trim().toLowerCase();
 	if (enabled !== 'true') {

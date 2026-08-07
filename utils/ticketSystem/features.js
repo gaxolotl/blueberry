@@ -8,10 +8,6 @@ import { buildTextContainer, replyContainer } from './config.js';
 import { getAccentColor, getErrorColor } from '../color.js';
 import { buildTranscriptHtml } from './transcriptHtml.js';
 
-/**
- * @param {import('discord.js').ThreadChannel} thread
- * @returns {Promise<Array<object>>}
- */
 async function buildTranscriptEntries(thread) {
 	const messages = [];
 	let before;
@@ -67,11 +63,6 @@ async function buildTranscriptEntries(thread) {
 	return entries;
 }
 
-/**
- * Builds a plain-text transcript string for a ticket.
- * @param {import('mongoose').Document} ticket
- * @returns {string}
- */
 export function buildTranscriptText(ticket) {
 	const lines = [
 		'Ticket Transcript',
@@ -105,12 +96,6 @@ export function buildTranscriptText(ticket) {
 	return lines.join('\n');
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {import('mongoose').Document} ticketConfig
- * @param {import('mongoose').Document} ticket
- * @returns {Promise<void>}
- */
 export async function postTranscript(guild, ticketConfig, ticket) {
 	if (!ticketConfig.transcriptChannelId) return;
 
@@ -151,12 +136,6 @@ export async function postTranscript(guild, ticketConfig, ticket) {
 	await ticket.save();
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {import('mongoose').Document} ticketConfig
- * @param {import('mongoose').Document} ticket
- * @returns {Promise<void>}
- */
 export async function saveTranscript(guild, ticketConfig, ticket) {
 	const thread = await guild.channels.fetch(ticket.threadId);
 	if (!thread?.isThread()) return;
@@ -169,11 +148,6 @@ export async function saveTranscript(guild, ticketConfig, ticket) {
 	await postTranscript(guild, ticketConfig, ticket);
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {import('mongoose').Document} ticketConfig
- * @returns {Promise<void>}
- */
 export async function autoCloseStaleTickets(guild, ticketConfig) {
 	if (!ticketConfig.autoCloseMinutes || ticketConfig.autoCloseMinutes <= 0) return;
 
@@ -210,11 +184,6 @@ export async function autoCloseStaleTickets(guild, ticketConfig) {
 	}
 }
 
-/**
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- * @param {import('mongoose').Document} ticket
- * @param {string} priority
- */
 export async function setTicketPriority(interaction, ticket, priority) {
 	ticket.priority = priority;
 	await ticket.save();
@@ -223,11 +192,6 @@ export async function setTicketPriority(interaction, ticket, priority) {
 	await replyContainer(interaction, buildTextContainer(successMsg));
 }
 
-/**
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- * @param {import('mongoose').Document} ticket
- * @param {string | null} note
- */
 export async function setTicketNote(interaction, ticket, note) {
 	ticket.notes = note;
 	await ticket.save();
@@ -238,10 +202,6 @@ export async function setTicketNote(interaction, ticket, note) {
 	await replyContainer(interaction, buildTextContainer(successMsg));
 }
 
-/**
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- * @param {import('mongoose').Document} ticket
- */
 export async function showTicketTranscript(interaction, ticket) {
 	if (ticket.transcript.length === 0) {
 		const noTranscript = await t(interaction.guildId, 'ticket_transcript_empty', { emoji: errorEmoji });

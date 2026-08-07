@@ -184,7 +184,6 @@ async function handleTicketAction(interaction, subcommand) {
 
 		await thread.setArchived(false, 'Ticket reopened');
 
-		// Create a visible reopen alert message inside the ticket
 		const alertText = await t(guildId, 'ticket_reopened_notice', { emoji: emojis.check, userId: interaction.user.id });
 		const replyText = await t(guildId, 'ticket_reopened_reply', { emoji: emojis.check });
 
@@ -272,7 +271,6 @@ async function handleTicketAction(interaction, subcommand) {
 		}
 		await ticket.save();
 
-		// Update/Edit the original welcome message in the thread
 		if (ticket.welcomeMessageId) {
 			try {
 				const welcomeMsg = await interaction.channel.messages.fetch(ticket.welcomeMessageId);

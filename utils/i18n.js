@@ -3,14 +3,10 @@ import { emojis } from './emoji.js';
 
 let messagesModule = null;
 
-/**
- * Lazily loads the Paraglide ESM messages module into CommonJS.
- * @returns {Promise<Object>}
- */
+// Lazy-loaded in CommonJS via a dynamic import of the Paraglide ESM output
 async function getMessages() {
 	if (!messagesModule) {
 		try {
-			// Using dynamic import bridges ESM output seamlessly into CommonJS Node environments
 			messagesModule = await import('../paraglide/messages.js');
 		}
 		catch (error) {
@@ -21,13 +17,6 @@ async function getMessages() {
 	return messagesModule;
 }
 
-/**
- * Translates a message key for a specific guild's configured language.
- * @param {string} guildId - The Discord guild ID.
- * @param {string} key - The translation key from your JSON files.
- * @param {Object} [params={}] - Dynamic parameters to interpolate into the string.
- * @returns {Promise<string>} The localized string.
- */
 async function t(guildId, key, params = {}) {
 	try {
 		const { getGuildConfig } = await import('./guildConfig.js');
@@ -52,13 +41,6 @@ async function t(guildId, key, params = {}) {
 	}
 }
 
-/**
- * Translates an error key and automatically combines it with the server's localized error prefix.
- * @param {string} guildId - The Discord guild ID.
- * @param {string} key - The specific translation error key.
- * @param {Object} [params={}] - Any dynamic parameters for the error body.
- * @returns {Promise<string>} The fully combined localized error string.
- */
 async function tError(guildId, key, params = {}) {
 	const prefix = await t(guildId, 'error_prefix', { emoji: emojis.x_ });
 	const body = await t(guildId, key, params);

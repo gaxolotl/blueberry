@@ -6,31 +6,15 @@ const DEFAULT_ERROR_COLOR = config.errorColor
 	? parseInt(config.errorColor.replace('#', ''), 16)
 	: 0xFF0000;
 
-/**
- * Validates a hex color string (3 or 6 chars, with optional #).
- * @param {string} hex
- * @returns {boolean}
- */
 export function isValidHex(hex) {
 	return /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(hex));
 }
 
-/**
- * Parses a hex color string (with or without #) to an integer.
- * Returns 0 if the input is invalid.
- * @param {string} hex
- * @returns {number}
- */
 export function parseHex(hex) {
 	if (!isValidHex(hex)) return 0;
 	return parseInt(String(hex).replace('#', ''), 16);
 }
 
-/**
- * Returns the accent color for a guild. Falls back to config.js default.
- * @param {string | null} guildId
- * @returns {Promise<number>}
- */
 export async function getAccentColor(guildId) {
 	if (!guildId) return DEFAULT_COLOR;
 
@@ -44,11 +28,6 @@ export async function getAccentColor(guildId) {
 	}
 }
 
-/**
- * Returns the error color for a guild. Falls back to DEFAULT_ERROR_COLOR (red).
- * @param {string | null} guildId
- * @returns {Promise<number>}
- */
 export async function getErrorColor(guildId) {
 	if (!guildId) return DEFAULT_ERROR_COLOR;
 
@@ -62,7 +41,4 @@ export async function getErrorColor(guildId) {
 	}
 }
 
-/**
- * The default accent color (from config.js) for use when guild context is unavailable.
- */
 export { DEFAULT_COLOR, DEFAULT_ERROR_COLOR };
