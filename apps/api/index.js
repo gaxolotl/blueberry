@@ -11,6 +11,7 @@ import Ticket from '../../models/Ticket.js';
 import TicketConfig from '../../models/TicketConfig.js';
 import InviteJoin from '../../models/InviteJoin.js';
 import Session from '../../models/Session.js';
+import { getInviteStats } from '../../utils/inviteTracker.js';
 import { createSession, createAuthMiddleware, fetchManageableGuilds } from './auth.js';
 import { buildTranscriptHtml } from '../../utils/ticketSystem/transcriptHtml.js';
 import PatchNoteConfig from '../../models/PatchNoteConfig.js';
@@ -21,6 +22,14 @@ import { getTicketAutomationLimits, validateAutomationRules } from '../../utils/
 import OnboardingConfig from '../../models/OnboardingConfig.js';
 import appConfig from '../../config.js';
 import { componentsV2TemplateLimits, validateComponentsV2Template } from '../../utils/componentsV2Template.js';
+import { getAnnouncementLimits, getAnnouncements, addAnnouncement, updateAnnouncement, removeAnnouncement } from '../../utils/announcements/config.js';
+import { getActivityStats } from '../../utils/activity.js';
+import { renderActivityChart } from '../../utils/activityChart.js';
+import { getRetentionStats } from '../../utils/retention.js';
+import { renderRetentionChart } from '../../utils/retentionChart.js';
+import { getAccentColor } from '../../utils/color.js';
+import { registerCustomCommandRoutes } from './ccRoutes.js';
+import { invalidatePrefixCache } from '../../utils/customCommands/messageHandler.js';
 
 const app = new Hono();
 
@@ -128,7 +137,11 @@ app.get('/api/guilds/:guildId', async (c) => {
 	return c.json(guild);
 });
 
-const GUILD_ALLOWED = ['language', 'manageRoleIds', 'accentColor', 'errorColor'];
+const GUILD_ALLOWED = ['language', 'manageRoleIds', 'accentColor', 'errorColor', 'commandPrefix'];
+
+function isValidCommandPrefix(value) {
+	return typeof value === 'string' && value.length >= 1 && value.length <= 10 && !/\s/.test(value);
+}
 
 const ONBOARDING_ALLOWED = [
 	'welcomeEnabled',
@@ -212,6 +225,9 @@ app.patch('/api/guilds/:guildId', async (c) => {
 			if ((key === 'accentColor' || key === 'errorColor') && !isValidHex(body[key])) {
 				return c.json({ error: `Invalid hex color for ${key}` }, 400);
 			}
+			if (key === 'commandPrefix' && !isValidCommandPrefix(body[key])) {
+				return c.json({ error: 'Prefix must be 1-10 characters with no spaces' }, 400);
+			}
 			updates[key] = body[key];
 		}
 	}
@@ -221,6 +237,10 @@ app.patch('/api/guilds/:guildId', async (c) => {
 		{ $set: updates },
 		{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
 	).lean();
+
+	if (updates.commandPrefix !== undefined) {
+		invalidatePrefixCache(guildId);
+	}
 
 	return c.json(guild);
 });
@@ -426,8 +446,8 @@ app.delete('/api/me', async (c) => {
 	}
 
 	await Promise.all([
-		InviteJoin.updateMany({ memberId: discordId }, { $set: { memberId: anonymousId, memberTag: 'Deleted user' } }),
-		InviteJoin.updateMany({ inviterId: discordId }, { $set: { inviterId: anonymousId, inviterTag: 'Deleted user' } }),
+		InviteJoin.updateMany({ memberId: discordId }, { $set: { memberId: anonymousId, memberTag: 'Deleted user', memberAvatar: null } }),
+		InviteJoin.updateMany({ inviterId: discordId }, { $set: { inviterId: anonymousId, inviterTag: 'Deleted user', inviterAvatar: null } }),
 		Session.deleteMany({ discordId }),
 	]);
 
@@ -520,6 +540,10 @@ app.get('/api/guilds/:guildId/resources', async (c) => {
 	}
 
 	const [roles, channels] = await Promise.all([rolesResponse.json(), channelsResponse.json()]);
+	const categoryNames = new Map();
+	for (const channel of channels) {
+		if (channel.type === 4) categoryNames.set(channel.id, channel.name);
+	}
 	return c.json({
 		roles: roles
 			.filter(role => role.id !== guildId && !role.managed)
@@ -528,7 +552,12 @@ app.get('/api/guilds/:guildId/resources', async (c) => {
 		channels: channels
 			.filter(channel => [0, 5].includes(channel.type))
 			.sort((a, b) => a.position - b.position)
-			.map(channel => ({ id: channel.id, name: channel.name, type: channel.type })),
+			.map(channel => ({
+				id: channel.id,
+				name: channel.name,
+				type: channel.type,
+				parentName: categoryNames.get(channel.parent_id) ?? null,
+			})),
 	});
 });
 
@@ -673,6 +702,160 @@ app.post('/api/guilds/:guildId/patch-notes/webhook', async (c) => {
 	return c.json({ ok: true, id: note._id });
 });
 
+// ---- Announcements ----
+const ANNOUNCEMENT_ALLOWED = [
+	'label',
+	'channelId',
+	'enabled',
+	'mentionRoleId',
+	'message',
+	'template',
+	'frequency',
+	'hour',
+	'minute',
+	'weekday',
+	'dayOfMonth',
+	'utcOffsetMinutes',
+];
+
+function isValidAnnouncementBody(body) {
+	if (typeof body !== 'object' || !body) return false;
+	if (body.label !== undefined && (typeof body.label !== 'string' || !body.label.trim() || body.label.length > getAnnouncementLimits().maxLabelLength)) return false;
+	if (body.channelId !== undefined && (typeof body.channelId !== 'string' || !/^\d{17,20}$/.test(body.channelId || ''))) return false;
+	if (body.frequency !== undefined && !['daily', 'weekly', 'monthly'].includes(body.frequency)) return false;
+	if (body.hour !== undefined && (!Number.isInteger(body.hour) || body.hour < 0 || body.hour > 23)) return false;
+	if (body.minute !== undefined && (!Number.isInteger(body.minute) || body.minute < 0 || body.minute > 59)) return false;
+	if (body.weekday !== undefined && (!Number.isInteger(body.weekday) || body.weekday < 0 || body.weekday > 6)) return false;
+	if (body.dayOfMonth !== undefined && (!Number.isInteger(body.dayOfMonth) || body.dayOfMonth < 1 || body.dayOfMonth > 31)) return false;
+	if (body.mentionRoleId !== undefined && (body.mentionRoleId !== null && (typeof body.mentionRoleId !== 'string' || !/^\d{17,20}$/.test(body.mentionRoleId)))) return false;
+	if (body.message !== undefined && (typeof body.message !== 'string' || body.message.length > getAnnouncementLimits().maxMessageLength)) return false;
+	if (body.template !== undefined && !validateComponentsV2Template(body.template)) return false;
+	if (body.utcOffsetMinutes !== undefined && (!Number.isInteger(body.utcOffsetMinutes) || body.utcOffsetMinutes < -720 || body.utcOffsetMinutes > 840)) return false;
+	return true;
+}
+
+function sanitizeAnnouncementBody(body) {
+	const updates = {};
+	for (const key of ANNOUNCEMENT_ALLOWED) {
+		if (body[key] !== undefined) updates[key] = body[key];
+	}
+	return updates;
+}
+
+app.get('/api/guilds/:guildId/announcements', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const announcements = await getAnnouncements(guildId);
+	return c.json({ announcements, limits: getAnnouncementLimits() });
+});
+
+app.post('/api/guilds/:guildId/announcements', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const body = await c.req.json().catch(() => null);
+	if (!isValidAnnouncementBody(body) || !body?.label?.trim()) return c.json({ error: 'Invalid announcement' }, 400);
+
+	try {
+		const announcement = await addAnnouncement(guildId, sanitizeAnnouncementBody(body));
+		return c.json(announcement, 201);
+	}
+	catch (error) {
+		if (error.code === 'ANNOUNCEMENT_LIMIT') return c.json({ error: `Announcement limit reached (${error.limit})` }, 400);
+		throw error;
+	}
+});
+
+app.patch('/api/guilds/:guildId/announcements/:announcementId', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const body = await c.req.json().catch(() => null);
+	if (!isValidAnnouncementBody(body)) return c.json({ error: 'Invalid announcement' }, 400);
+
+	const announcement = await updateAnnouncement(guildId, c.req.param('announcementId'), sanitizeAnnouncementBody(body));
+	if (!announcement) return c.json({ error: 'Announcement not found' }, 404);
+	return c.json(announcement);
+});
+
+app.delete('/api/guilds/:guildId/announcements/:announcementId', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const announcement = await removeAnnouncement(guildId, c.req.param('announcementId'));
+	if (!announcement) return c.json({ error: 'Announcement not found' }, 404);
+	return c.json(announcement);
+});
+
+// ---- Activity ----
+const ACTIVITY_PERIODS = ['day', 'week', 'month', 'year'];
+
+app.get('/api/guilds/:guildId/activity', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const period = ACTIVITY_PERIODS.includes(c.req.query('period')) ? c.req.query('period') : 'week';
+	const stats = await getActivityStats(guildId, period);
+	return c.json(stats);
+});
+
+app.get('/api/guilds/:guildId/activity/chart', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const period = ACTIVITY_PERIODS.includes(c.req.query('period')) ? c.req.query('period') : 'week';
+	const stats = await getActivityStats(guildId, period);
+	const accentColor = await getAccentColor(guildId);
+	const png = await renderActivityChart({
+		series: stats.series,
+		totalMessages: stats.totalMessages,
+		activeMembers: stats.activeMembers,
+		accentColor,
+	});
+	return c.body(png, 200, {
+		'Content-Type': 'image/png',
+		'Cache-Control': 'no-store',
+	});
+});
+
+// ---- Retention ----
+const RETENTION_PERIODS = ['day', 'week', 'month', 'year'];
+
+app.get('/api/guilds/:guildId/retention', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const period = RETENTION_PERIODS.includes(c.req.query('period')) ? c.req.query('period') : 'week';
+	const stats = await getRetentionStats(guildId, period);
+	return c.json(stats);
+});
+
+app.get('/api/guilds/:guildId/retention/chart', async (c) => {
+	const session = c.get('session');
+	const guildId = c.req.param('guildId');
+	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
+
+	const period = RETENTION_PERIODS.includes(c.req.query('period')) ? c.req.query('period') : 'week';
+	const stats = await getRetentionStats(guildId, period);
+	const png = await renderRetentionChart({
+		series: stats.series,
+		totalJoins: stats.totalJoins,
+		totalLeaves: stats.totalLeaves,
+	});
+	return c.body(png, 200, {
+		'Content-Type': 'image/png',
+		'Cache-Control': 'no-store',
+	});
+});
+
 // ---- Invite Joins ----
 app.get('/api/guilds/:guildId/invites', async (c) => {
 	const session = c.get('session');
@@ -692,19 +875,12 @@ app.get('/api/guilds/:guildId/invites/stats', async (c) => {
 	const guildId = c.req.param('guildId');
 	if (!await canAccessGuild(session, guildId)) return c.json({ error: 'Forbidden' }, 403);
 
-	const [total, topInvites] = await Promise.all([
-		InviteJoin.countDocuments({ guildId }),
-		InviteJoin.aggregate([
-			{ $match: { guildId } },
-			{ $group: { _id: '$inviteCode', count: { $sum: 1 } } },
-			{ $sort: { count: -1 } },
-			{ $limit: 10 },
-		]),
-	]);
-	return c.json({ total, topInvites });
+	return c.json(await getInviteStats(guildId));
 });
 
 const port = Number(process.env.API_PORT ?? 3001);
+
+registerCustomCommandRoutes(app, canAccessGuild);
 
 async function start() {
 	try {

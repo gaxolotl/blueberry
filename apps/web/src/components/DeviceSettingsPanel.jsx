@@ -14,36 +14,36 @@ export default function DeviceSettingsPanel({ onClose }) {
 					<X size={14} />
 				</button>
 			</div>
-			<div className="device-panel-body">
-				<div className="form-row">
-					<label className="form-label">
-						<Languages size={13} />
-						{t('device.language')}
-					</label>
-					<select
-						className="form-input form-input-narrow form-select"
-						value={prefs.language}
-						onChange={(e) => setPref('language', e.target.value)}
-					>
-						<option value="en">{t('device.languageEn')}</option>
-						<option value="bg">{t('device.languageBg')}</option>
-					</select>
-				</div>
-				<div className="form-row">
-					<label className="form-label">
-						<Palette size={13} />
-						{t('device.theme')}
-					</label>
-					<select
-						className="form-input form-input-narrow form-select"
-						value={prefs.theme}
-						onChange={(e) => setPref('theme', e.target.value)}
-					>
-						<option value="dark">{t('device.themeDark')}</option>
-						<option value="light">{t('device.themeLight')}</option>
-					</select>
-				</div>
+<div className="device-panel-body">
+			<div className="form-row">
+				<label className="form-label">
+					<Languages size={13} />
+					{t('device.language')}
+				</label>
+				<select
+					className="form-input form-select"
+					value={prefs.language}
+					onChange={(e) => setPref('language', e.target.value)}
+				>
+					<option value="en">{t('device.languageEn')}</option>
+					<option value="bg">{t('device.languageBg')}</option>
+				</select>
 			</div>
+			<div className="form-row">
+				<label className="form-label">
+					<Palette size={13} />
+					{t('device.theme')}
+				</label>
+				<select
+					className="form-input form-select"
+					value={prefs.theme}
+					onChange={(e) => setPref('theme', e.target.value)}
+				>
+					<option value="dark">{t('device.themeDark')}</option>
+					<option value="light">{t('device.themeLight')}</option>
+				</select>
+			</div>
+		</div>
 		</div>
 	);
 }

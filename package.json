@@ -12,6 +12,7 @@
     "deploy": "node --env-file=.env cmd/deploy.js",
     "deploy-guild": "node --env-file=.env cmd/deploy-guild.js",
     "emoji": "node --env-file=.env cmd/emoji-sync.js",
+    "install-showcase": "node --env-file=.env cmd/install-showcase.js",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:i18n": "pnpm paraglide-js compile --project ./project.inlang --outdir ./paraglide",

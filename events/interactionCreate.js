@@ -1,12 +1,18 @@
 import { Events, MessageFlags } from 'discord.js';
 import logger from '../utils/logger.js';
 import { handleTicketButton } from '../utils/ticketSystem/index.js';
+import { handleInteractionCommand } from '../utils/customCommands/interactions.js';
 
 export default {
 	name: Events.InteractionCreate,
 	async execute(interaction) {
 		if (interaction.isButton()) {
 			try {
+				// Custom-command component triggers take priority; if none match,
+				// fall through to the ticket system.
+				const ccHandled = await handleInteractionCommand(interaction);
+				if (ccHandled) return;
+
 				const handled = await handleTicketButton(interaction);
 				if (handled) return;
 			}
@@ -20,6 +26,17 @@ export default {
 				}
 			}
 			return;
+		}
+
+		if (interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
+			try {
+				const ccHandled = await handleInteractionCommand(interaction);
+				if (ccHandled) return;
+			}
+			catch (error) {
+				logger.error('Failed to handle component custom command:', error);
+			}
+			if (interaction.isModalSubmit()) return;
 		}
 
 		if (!interaction.isChatInputCommand()) return;

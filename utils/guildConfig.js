@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, ContainerBuilder, MessageFlags, RoleSelectMenuBuilder, SeparatorSpacingSize, StringSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, ContainerBuilder, MessageFlags, ModalBuilder, RoleSelectMenuBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import Guild from '../models/Guild.js';
 import OnboardingConfig from '../models/OnboardingConfig.js';
 import config from '../config.js';
@@ -6,6 +6,7 @@ import logger from './logger.js';
 import { t } from './i18n.js';
 import { emojis } from './emoji.js';
 import { getAccentColor, getErrorColor } from './color.js';
+import { addAnnouncement, getAnnouncementLimits, getAnnouncements, removeAnnouncement } from './announcements/config.js';
 
 const CONFIG_PREFIX = 'gcfg';
 
@@ -51,6 +52,8 @@ async function buildConfigHomeContainer(guildConfig) {
 	const farewellDesc = await t(guildId, 'config_home_farewell_desc');
 	const safetyLabel = await t(guildId, 'config_home_safety_label');
 	const safetyDesc = await t(guildId, 'config_home_safety_desc');
+	const announcementsLabel = await t(guildId, 'config_home_announcements_label');
+	const announcementsDesc = await t(guildId, 'config_home_announcements_desc');
 
 	return new ContainerBuilder()
 		.setAccentColor(color)
@@ -66,9 +69,10 @@ async function buildConfigHomeContainer(guildConfig) {
 					.addOptions([
 						{ label: langLabel, description: langDesc, value: 'language', emoji: emojis.folders },
 						{ label: rolesLabel, description: rolesDesc, value: 'roles', emoji: emojis.shield },
-						{ label: welcomeLabel, description: welcomeDesc, value: 'welcome' },
-						{ label: farewellLabel, description: farewellDesc, value: 'farewell' },
-						{ label: safetyLabel, description: safetyDesc, value: 'safety', emoji: emojis.shield },
+						{ label: welcomeLabel, description: welcomeDesc, value: 'welcome', emoji: emojis.messagesquarecheck },
+						{ label: farewellLabel, description: farewellDesc, value: 'farewell', emoji: emojis.messagesquarex },
+						{ label: safetyLabel, description: safetyDesc, value: 'safety', emoji: emojis.shieldcheck },
+						{ label: announcementsLabel, description: announcementsDesc, value: 'announcements', emoji: emojis.megaphone },
 					]),
 			),
 		);
@@ -217,25 +221,342 @@ async function buildConfigRolesContainer(guildConfig) {
 		);
 }
 
-async function renderConfigPage(page, guildConfig, onboardingConfig) {
+const ANNOUNCEMENT_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function describeAnnouncementSchedule(guildId, announcement) {
+	const time = `${String(announcement.hour).padStart(2, '0')}:${String(announcement.minute).padStart(2, '0')}`;
+	if (announcement.frequency === 'weekly') return `every ${ANNOUNCEMENT_WEEKDAYS[announcement.weekday]} at ${time}`;
+	if (announcement.frequency === 'monthly') return `on day ${announcement.dayOfMonth} at ${time}`;
+	return `every day at ${time}`;
+}
+
+async function buildAnnouncementsHome(container, guildId) {
+	const backBtn = await t(guildId, 'config_back_button');
+	container
+		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
+		.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`${CONFIG_PREFIX}:home`)
+					.setLabel(backBtn)
+					.setEmoji(emojis.chevronleft)
+					.setStyle(ButtonStyle.Secondary),
+			),
+		);
+	return container;
+}
+
+async function buildAnnouncementsContainer(guildId) {
+	const announcements = await getAnnouncements(guildId);
+	const limits = getAnnouncementLimits();
+	const enabledCount = announcements.filter(item => item.enabled).length;
+	const title = await t(guildId, 'config_announcements_title', { emoji: emojis.award });
+	const summary = await t(guildId, 'config_announcements_summary', {
+		enabled: enabledCount.toString(),
+		total: announcements.length.toString(),
+		max: limits.maxAnnouncements.toString(),
+	});
+	const noneSet = await t(guildId, 'announcements_none_set');
+	const addLabel = await t(guildId, 'config_announcements_add');
+	const addDesc = await t(guildId, 'config_announcements_add_desc');
+	const removeLabel = await t(guildId, 'config_announcements_remove');
+	const removeDesc = await t(guildId, 'config_announcements_remove_desc');
+	const placeholder = await t(guildId, 'config_announcements_select_placeholder');
+
+	const container = new ContainerBuilder()
+		.setAccentColor(await getAccentColor(guildId))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${title}`))
+		.addSeparatorComponents(s => s.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(summary));
+
+	if (announcements.length) {
+		const lines = announcements.map(announcement =>
+			`${announcement.enabled ? emojis.check : emojis.x_} **${announcement.label}** — ${describeAnnouncementSchedule(guildId, announcement)}${announcement.nextRunAt ? ` • <t:${Math.floor(new Date(announcement.nextRunAt).getTime() / 1000)}:R>` : ''}`,
+		);
+		container.addTextDisplayComponents(textDisplay => textDisplay.setContent(lines.join('\n')));
+	}
+	else {
+		container.addTextDisplayComponents(textDisplay => textDisplay.setContent(noneSet));
+	}
+
+	container.addActionRowComponents(new ActionRowBuilder().addComponents(
+		new StringSelectMenuBuilder()
+			.setCustomId(`${CONFIG_PREFIX}:ann:nav`)
+			.setPlaceholder(placeholder)
+			.addOptions([
+				{ label: addLabel, description: addDesc, value: 'add', emoji: emojis.award },
+				{ label: removeLabel, description: removeDesc, value: 'remove', emoji: emojis.x_ },
+			]),
+	));
+
+	return buildAnnouncementsHome(container, guildId);
+}
+
+async function buildAnnouncementsAddTypeContainer(guildId) {
+	const title = await t(guildId, 'config_announcements_add_title');
+	const desc = await t(guildId, 'config_announcements_add_desc');
+	const placeholder = await t(guildId, 'config_announcements_add_type_placeholder');
+	const dailyLabel = await t(guildId, 'config_announcements_freq_daily');
+	const weeklyLabel = await t(guildId, 'config_announcements_freq_weekly');
+	const monthlyLabel = await t(guildId, 'config_announcements_freq_monthly');
+
+	const container = new ContainerBuilder()
+		.setAccentColor(await getAccentColor(guildId))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${title}`))
+		.addSeparatorComponents(separator => separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(desc))
+		.addActionRowComponents(new ActionRowBuilder().addComponents(
+			new StringSelectMenuBuilder()
+				.setCustomId(`${CONFIG_PREFIX}:ann:addtype`)
+				.setPlaceholder(placeholder)
+				.addOptions([
+					{ label: dailyLabel, value: 'daily' },
+					{ label: weeklyLabel, value: 'weekly' },
+					{ label: monthlyLabel, value: 'monthly' },
+				]),
+		));
+
+	return buildAnnouncementsHome(container, guildId);
+}
+
+async function buildAnnouncementsChannelContainer(guildId) {
+	const title = await t(guildId, 'config_announcements_channel_title');
+	const desc = await t(guildId, 'config_announcements_channel_desc');
+	const placeholder = await t(guildId, 'config_announcements_channel_placeholder');
+
+	const container = new ContainerBuilder()
+		.setAccentColor(await getAccentColor(guildId))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${title}`))
+		.addSeparatorComponents(separator => separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(desc))
+		.addActionRowComponents(new ActionRowBuilder().addComponents(
+			new ChannelSelectMenuBuilder()
+				.setCustomId(`${CONFIG_PREFIX}:ann:channel`)
+				.setPlaceholder(placeholder)
+				.setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+		));
+
+	return buildAnnouncementsHome(container, guildId);
+}
+
+async function handleAnnouncementModal(interaction, state) {
+	const frequency = interaction.values[0];
+	const isWeekly = frequency === 'weekly';
+	const isMonthly = frequency === 'monthly';
+
+	const modal = new ModalBuilder()
+		.setCustomId(`${CONFIG_PREFIX}:ann:modal:${frequency}`)
+		.setTitle(await t(interaction.guildId, 'config_announcements_modal_title'))
+		.addComponents(
+			new ActionRowBuilder().addComponents(
+				new TextInputBuilder()
+					.setCustomId('label')
+					.setLabel(await t(interaction.guildId, 'announcements_label'))
+					.setStyle(TextInputStyle.Short)
+					.setMaxLength(50)
+					.setRequired(true),
+			),
+			new ActionRowBuilder().addComponents(
+				new TextInputBuilder()
+					.setCustomId('hour')
+					.setLabel(await t(interaction.guildId, 'announcements_hour'))
+					.setStyle(TextInputStyle.Short)
+					.setMaxLength(2)
+					.setRequired(true),
+			),
+			new ActionRowBuilder().addComponents(
+				new TextInputBuilder()
+					.setCustomId('minute')
+					.setLabel(await t(interaction.guildId, 'announcements_minute'))
+					.setStyle(TextInputStyle.Short)
+					.setMaxLength(2)
+					.setRequired(true),
+			),
+		);
+
+	if (isWeekly || isMonthly) {
+		modal.addComponents(new ActionRowBuilder().addComponents(
+			new TextInputBuilder()
+				.setCustomId('dayvalue')
+				.setLabel(await t(interaction.guildId, isWeekly ? 'announcements_weekday_label' : 'announcements_dayofmonth_label'))
+				.setStyle(TextInputStyle.Short)
+				.setMaxLength(2)
+				.setRequired(true),
+		));
+	}
+
+	modal.addComponents(new ActionRowBuilder().addComponents(
+		new TextInputBuilder()
+			.setCustomId('message')
+			.setLabel(await t(interaction.guildId, 'announcements_message'))
+			.setStyle(TextInputStyle.Paragraph)
+			.setMaxLength(4000)
+			.setRequired(false),
+	));
+
+	await interaction.showModal(modal);
+
+	const submitted = await interaction.awaitModalSubmit({
+		filter: modalInteraction => modalInteraction.customId.startsWith(`${CONFIG_PREFIX}:ann:modal:`) && modalInteraction.user.id === interaction.user.id,
+		time: 5 * 60 * 1000,
+	}).catch(() => null);
+	if (!submitted) return;
+
+	const label = submitted.fields.getTextInputValue('label').trim();
+	const hour = Number(submitted.fields.getTextInputValue('hour').trim());
+	const minute = Number(submitted.fields.getTextInputValue('minute').trim());
+	const dayValue = (isWeekly || isMonthly) ? Number(submitted.fields.getTextInputValue('dayvalue').trim()) : null;
+	const message = submitted.fields.getTextInputValue('message').trim();
+
+	const validTime = Number.isInteger(hour) && hour >= 0 && hour <= 23 && Number.isInteger(minute) && minute >= 0 && minute <= 59;
+	const validDay = !isWeekly || (Number.isInteger(dayValue) && dayValue >= 0 && dayValue <= 6);
+	const validMonth = !isMonthly || (Number.isInteger(dayValue) && dayValue >= 1 && dayValue <= 31);
+
+	if (!label || !validTime || !validDay || !validMonth) {
+		const errMsg = await t(submitted.guildId, 'announcements_err_invalid');
+		await submitted.reply({
+			components: [await buildTextContainer(`${emojis.x_} **Error:** ${errMsg}`, submitted.guildId, await getErrorColor(submitted.guildId))],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+		});
+		return;
+	}
+
+	state.announcementDraft = {
+		label,
+		frequency,
+		hour,
+		minute,
+		dayValue,
+		message,
+	};
+
+	await submitted.update({ components: [await buildAnnouncementsChannelContainer(submitted.guildId)] });
+}
+
+async function buildAnnouncementsRemoveContainer(guildId) {
+	const announcements = await getAnnouncements(guildId);
+	const title = await t(guildId, 'config_announcements_remove_title');
+	const placeholder = await t(guildId, 'config_announcements_remove_placeholder');
+	const noneSet = await t(guildId, 'announcements_none_set');
+
+	const container = new ContainerBuilder()
+		.setAccentColor(await getAccentColor(guildId))
+		.addTextDisplayComponents(textDisplay => textDisplay.setContent(`## ${title}`))
+		.addSeparatorComponents(separator => separator.setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+	if (announcements.length) {
+		container.addActionRowComponents(new ActionRowBuilder().addComponents(
+			new StringSelectMenuBuilder()
+				.setCustomId(`${CONFIG_PREFIX}:ann:remove`)
+				.setPlaceholder(placeholder)
+				.addOptions(announcements.map(announcement => ({
+					label: announcement.label.slice(0, 100),
+					value: announcement._id.toString(),
+				}))),
+		));
+	}
+	else {
+		container.addTextDisplayComponents(text => text.setContent(noneSet));
+	}
+
+	return buildAnnouncementsHome(container, guildId);
+}
+
+async function renderConfigPage(page, guildConfig, onboardingConfig, state) {
 	switch (page) {
 	case 'language': return await buildConfigLangContainer(guildConfig);
 	case 'roles': return await buildConfigRolesContainer(guildConfig);
 	case 'welcome': return await buildOnboardingChannelContainer(guildConfig.guildId, onboardingConfig, 'welcome');
 	case 'farewell': return await buildOnboardingChannelContainer(guildConfig.guildId, onboardingConfig, 'farewell');
 	case 'safety': return await buildSafetyContainer(guildConfig.guildId, onboardingConfig);
+	case 'announcements': return await buildAnnouncementsContainer(guildConfig.guildId, state);
 	default: return await buildConfigHomeContainer(guildConfig);
 	}
 }
 
-async function handleConfigComponent(interaction, guildConfig, onboardingConfig) {
+async function handleConfigComponent(interaction, guildConfig, onboardingConfig, state) {
 	if (interaction.customId === `${CONFIG_PREFIX}:nav`) {
-		await interaction.update({ components: [await renderConfigPage(interaction.values[0], guildConfig, onboardingConfig)] });
+		await interaction.update({ components: [await renderConfigPage(interaction.values[0], guildConfig, onboardingConfig, state)] });
 		return;
 	}
 
 	if (interaction.customId === `${CONFIG_PREFIX}:home`) {
+		state.announcementDraft = null;
 		await interaction.update({ components: [await buildConfigHomeContainer(guildConfig)] });
+		return;
+	}
+
+	if (interaction.customId === `${CONFIG_PREFIX}:ann:nav`) {
+		if (interaction.values[0] === 'add') {
+			await interaction.update({ components: [await buildAnnouncementsAddTypeContainer(guildConfig.guildId)] });
+		}
+		else {
+			await interaction.update({ components: [await buildAnnouncementsRemoveContainer(guildConfig.guildId)] });
+		}
+		return;
+	}
+
+	if (interaction.customId === `${CONFIG_PREFIX}:ann:addtype`) {
+		await handleAnnouncementModal(interaction, state);
+		return;
+	}
+
+	if (interaction.customId === `${CONFIG_PREFIX}:ann:channel`) {
+		const draft = state.announcementDraft;
+		if (!draft) {
+			await interaction.update({ components: [await buildAnnouncementsContainer(guildConfig.guildId)] });
+			return;
+		}
+		const announcement = {
+			label: draft.label,
+			frequency: draft.frequency,
+			hour: draft.hour,
+			minute: draft.minute,
+			message: draft.message,
+			channelId: interaction.values[0],
+			enabled: true,
+			mentionRoleId: null,
+			utcOffsetMinutes: 0,
+			template: null,
+		};
+		if (draft.frequency === 'weekly') announcement.weekday = draft.dayValue;
+		if (draft.frequency === 'monthly') announcement.dayOfMonth = draft.dayValue;
+
+		try {
+			const created = await addAnnouncement(guildConfig.guildId, announcement);
+			state.announcementDraft = null;
+			const confirmText = await t(interaction.guildId, 'config_announcements_created', { label: created.label, emoji: emojis.check });
+			await interaction.update({ components: [await buildAnnouncementsContainer(guildConfig.guildId)] });
+			await interaction.followUp({
+				components: [await buildTextContainer(confirmText, guildConfig.guildId)],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+			});
+		}
+		catch (error) {
+			if (error.code === 'ANNOUNCEMENT_LIMIT') {
+				const limitMsg = await t(interaction.guildId, 'announcements_err_source_limit', { limit: error.limit.toString() });
+				await interaction.followUp({ components: [await buildTextContainer(limitMsg, guildConfig.guildId, await getErrorColor(guildConfig.guildId))], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+			}
+			else {
+				throw error;
+			}
+		}
+		return;
+	}
+
+	if (interaction.customId === `${CONFIG_PREFIX}:ann:remove`) {
+		const removed = await removeAnnouncement(guildConfig.guildId, interaction.values[0]);
+		if (removed) {
+			const confirmText = await t(interaction.guildId, 'config_announcements_removed', { label: removed.label, emoji: emojis.check });
+			await interaction.update({ components: [await buildAnnouncementsContainer(guildConfig.guildId)] });
+			await interaction.followUp({
+				components: [await buildTextContainer(confirmText, guildConfig.guildId)],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+			});
+		}
+		else {
+			await interaction.update({ components: [await buildAnnouncementsContainer(guildConfig.guildId)] });
+		}
 		return;
 	}
 
@@ -294,6 +615,7 @@ async function handleConfigComponent(interaction, guildConfig, onboardingConfig)
 async function startConfigSession(interaction) {
 	let guildConfig = await getGuildConfig(interaction.guildId);
 	let onboardingConfig = await getOnboardingConfig(interaction.guildId);
+	const state = { announcementDraft: null };
 
 	await interaction.reply({
 		components: [await buildConfigHomeContainer(guildConfig)],
@@ -311,7 +633,7 @@ async function startConfigSession(interaction) {
 		try {
 			guildConfig = await getGuildConfig(interaction.guildId);
 			onboardingConfig = await getOnboardingConfig(interaction.guildId);
-			await handleConfigComponent(i, guildConfig, onboardingConfig);
+			await handleConfigComponent(i, guildConfig, onboardingConfig, state);
 		}
 		catch (error) {
 			logger.error('Failed to handle guild config interaction:', error);

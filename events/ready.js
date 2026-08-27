@@ -6,6 +6,8 @@ import { syncAllGuilds } from '../utils/guildSync.js';
 import logger from '../utils/logger.js';
 import { runSync } from '../cmd/emoji-sync.js';
 import { schedulePatchNotePolling } from '../utils/patchNotes/tracker.js';
+import { scheduleAnnouncementPolling } from '../utils/announcements/scheduler.js';
+import { startCustomCommandScheduler } from '../utils/customCommands/scheduler.js';
 
 export default {
 	name: Events.ClientReady,
@@ -34,6 +36,8 @@ export default {
 		}
 
 		schedulePatchNotePolling(client);
+		scheduleAnnouncementPolling(client);
+		startCustomCommandScheduler(client);
 
 		// Periodically auto-close stale tickets while the bot is running
 		setInterval(async () => {
@@ -47,5 +51,17 @@ export default {
 				}
 			}
 		}, 10 * 60 * 1000);
+
+		// Refresh invite snapshots regularly so fresh invites can be matched on joins.
+		setInterval(async () => {
+			for (const guild of client.guilds.cache.values()) {
+				try {
+					await snapshotGuildInvites(guild);
+				}
+				catch (error) {
+					logger.warn(`Unable to refresh invites for ${guild.name}: ${error.message}`);
+				}
+			}
+		}, 5 * 60 * 1000);
 	},
 };

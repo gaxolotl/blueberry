@@ -30,4 +30,8 @@ export const emojis = {
 	award: '<:award:1529118756268150975>',
 	chartnoaxescombined: '<:chartnoaxescombined:1529118966453239818>',
 	star: '<:star:1529119044341600368>',
+	megaphone: '<:megaphone:1535931743381626890>',
+	shieldcheck: '<:shieldcheck:1535940983701901433>',
+	messagesquarecheck: '<:messagesquarecheck:1535941368025980958>',
+	messagesquarex: '<:messagesquarex:1535941365987541053>',
 };

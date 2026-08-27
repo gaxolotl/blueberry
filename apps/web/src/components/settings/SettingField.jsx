@@ -20,6 +20,7 @@ export function TextField({ field, value, onChange }) {
 					className="form-input"
 					value={value ?? ''}
 					placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+					maxLength={field.maxLength}
 					onChange={(e) => onChange(e.target.value)}
 				/>
 				{field.hintKey && <span className="form-hint">{t(field.hintKey)}</span>}

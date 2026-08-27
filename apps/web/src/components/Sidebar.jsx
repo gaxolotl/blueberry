@@ -1,11 +1,11 @@
 import { useI18n } from '../hooks/useI18n.jsx';
 import { guildIconUrl } from '../utils/discord.js';
 
-export default function Sidebar({ title, guilds, selectedGuildId, onSelectGuild }) {
+export default function Sidebar({ title, guilds, selectedGuildId, onSelectGuild, isOpen, onClose }) {
 	const { t } = useI18n();
 
 	return (
-		<aside className="sidebar">
+		<aside className={`sidebar${isOpen ? ' open' : ''}`}>
 			<div className="sidebar-header">
 				<span className="sidebar-title">{title}</span>
 			</div>
@@ -20,7 +20,10 @@ export default function Sidebar({ title, guilds, selectedGuildId, onSelectGuild 
 						<button
 							key={guild.id}
 							className={`sidebar-item${selectedGuildId === guild.id ? ' active' : ''}`}
-							onClick={() => onSelectGuild(guild.id)}
+							onClick={() => {
+								onSelectGuild(guild.id);
+								onClose?.();
+							}}
 						>
 							{iconUrl ? (
 								<img className="sidebar-item-icon-img" src={iconUrl} alt="" />

@@ -30,4 +30,10 @@ export default {
 		welcomeMessage: 'Welcome {user} to **{server}**! You joined through {invite}.',
 		farewellMessage: '**{username}** has left **{server}**.',
 	},
+	announcements: {
+		maxAnnouncements: 5,
+		maxLabelLength: 50,
+		maxMessageLength: 4000,
+		pollIntervalSeconds: 60,
+	},
 };

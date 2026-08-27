@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Ticket, UserPlus, Settings, Loader2, Megaphone, Tags, ShieldCheck, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Ticket, UserPlus, Settings, Loader2, Megaphone, Tags, ShieldCheck, Users, CalendarClock, TrendingUp, Terminal } from 'lucide-react';
 import { I18nProvider, useI18n } from './hooks/useI18n.jsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import ActivityBar from './components/ActivityBar.jsx';
@@ -14,6 +14,9 @@ import PatchNotesView from './views/PatchNotesView.jsx';
 import TicketAutomationView from './views/TicketAutomationView.jsx';
 import AccountPrivacyView from './views/AccountPrivacyView.jsx';
 import OnboardingView from './views/OnboardingView.jsx';
+import AnnouncementsView from './views/AnnouncementsView.jsx';
+import ActivityView from './views/ActivityView.jsx';
+import CustomCommandsView from './views/CustomCommandsView.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 
 const VIEWS = {
@@ -22,7 +25,10 @@ const VIEWS = {
 	invites: { labelKey: 'nav.invites', icon: UserPlus, component: InvitesView },
 	patchNotes: { labelKey: 'nav.patchNotes', icon: Megaphone, component: PatchNotesView },
 	ticketAutomation: { labelKey: 'nav.ticketAutomation', icon: Tags, component: TicketAutomationView },
-	onboarding: { labelKey: 'nav.onboarding', icon: Sparkles, component: OnboardingView },
+	onboarding: { labelKey: 'nav.onboarding', icon: Users, component: OnboardingView },
+	announcements: { labelKey: 'nav.announcements', icon: CalendarClock, component: AnnouncementsView },
+	activity: { labelKey: 'nav.activity', icon: TrendingUp, component: ActivityView },
+	customCommands: { labelKey: 'nav.customCommands', icon: Terminal, component: CustomCommandsView },
 	settings: { labelKey: 'nav.settings', icon: Settings, component: SettingsView },
 	account: { labelKey: 'nav.account', icon: ShieldCheck, component: AccountPrivacyView },
 };
@@ -49,6 +55,7 @@ function AppContent() {
 	const [activeView, setActiveView] = useState('overview');
 	const [selectedGuildId, setSelectedGuildId] = useState(null);
 	const [apiStatus, setApiStatus] = useState('connecting');
+	const [sidebarOpen, setSidebarOpen] = useState(false);
 
 	// Use the session's guilds (with names/icons) directly
 	const guilds = user?.guilds ?? [];
@@ -82,7 +89,7 @@ function AppContent() {
 		<I18nProvider guildId={selectedGuildId}>
 			<ToastProvider>
 				<div className="app">
-					<TitleBar />
+					<TitleBar onSidebarToggle={setSidebarOpen} />
 					<div className="app-body">
 						<ActivityBar
 							views={VIEWS}
@@ -94,7 +101,10 @@ function AppContent() {
 							guilds={guilds}
 							selectedGuildId={selectedGuildId}
 							onSelectGuild={setSelectedGuildId}
+							isOpen={sidebarOpen}
+							onClose={() => setSidebarOpen(false)}
 						/>
+						<div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
 						<main className="main-content">
 							<ActiveComponent
 								guildId={selectedGuildId}

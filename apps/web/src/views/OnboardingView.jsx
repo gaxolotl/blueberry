@@ -58,30 +58,30 @@ export default function OnboardingView({ guildId }) {
 		}
 	};
 
-	return (
-		<div className="view onboarding-view">
-			<div className="patch-notes-header">
-				<div><h1 className="view-title">{t('onboarding.title')}</h1><p className="view-subtitle">{t('onboarding.subtitle')}</p></div>
-				<button className="btn" onClick={save} disabled={saving}><Save size={14} /> {saving ? t('settings.saving') : t('onboarding.save')}</button>
+return (
+			<div className="view onboarding-view">
+				<div className="patch-notes-header">
+					<div><h1 className="view-title">{t('onboarding.title')}</h1><p className="view-subtitle">{t('onboarding.subtitle')}</p></div>
+					<button className="btn" onClick={save} disabled={saving}><Save size={14} /> {saving ? t('settings.saving') : t('onboarding.save')}</button>
+				</div>
+
+				<section className="panel onboarding-panel">
+					<div className="onboarding-panel-heading"><UserPlus size={20} /><div><h2>{t('onboarding.joinTitle')}</h2><p>{t('onboarding.joinDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.welcomeEnabled} onChange={event => update('welcomeEnabled', event.target.checked)} /><span>{t('onboarding.enabled')}</span></label></div>
+					<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.welcomeChannelId} onChange={value => update('welcomeChannelId', value || null)} /></label>{!settings.welcomeTemplate && <label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.welcomeMessage} onChange={event => update('welcomeMessage', event.target.value)} /><span className="form-hint">{t('onboarding.joinVariables')}</span></label>}</div>
+					<ComponentsV2Editor value={settings.welcomeTemplate} fallbackMessage={settings.welcomeMessage} onChange={value => update('welcomeTemplate', value)} variablesHint={t('onboarding.joinVariables')} limits={settings.limits.componentsV2} />
+				</section>
+
+				<section className="panel onboarding-panel">
+					<div className="onboarding-panel-heading"><UserMinus size={20} /><div><h2>{t('onboarding.leaveTitle')}</h2><p>{t('onboarding.leaveDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.farewellEnabled} onChange={event => update('farewellEnabled', event.target.checked)} /><span>{t('onboarding.enabled')}</span></label></div>
+					<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.farewellChannelId} onChange={value => update('farewellChannelId', value || null)} /></label>{!settings.farewellTemplate && <label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.farewellMessage} onChange={event => update('farewellMessage', event.target.value)} /><span className="form-hint">{t('onboarding.leaveVariables')}</span></label>}</div>
+					<ComponentsV2Editor value={settings.farewellTemplate} fallbackMessage={settings.farewellMessage} onChange={value => update('farewellTemplate', value)} variablesHint={t('onboarding.leaveVariables')} limits={settings.limits.componentsV2} />
+				</section>
+
+				<section className="panel onboarding-panel">
+					<div className="onboarding-panel-heading"><ShieldCheck size={20} /><div><h2>{t('onboarding.safetyTitle')}</h2><p>{t('onboarding.safetyDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.accountAgeAlertEnabled} onChange={event => update('accountAgeAlertEnabled', event.target.checked)} /><span>{t('onboarding.alertsEnabled')}</span></label></div>
+					<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.alertChannel')}</span><ChannelSelect channels={resources.channels} value={settings.accountAgeAlertChannelId} onChange={value => update('accountAgeAlertChannelId', value || null)} /></label><label className="form-stack"><span className="form-label">{t('onboarding.minimumAge')}</span><input className="form-input" type="number" min="1" max={settings.limits.maxAccountAgeDays} value={settings.accountAgeMinimumDays} onChange={event => update('accountAgeMinimumDays', Number(event.target.value))} /></label></div>
+					<div className="form-stack"><span className="form-label">{t('onboarding.autoRoles', { count: settings.autoRoleIds.length, max: settings.limits.maxAutoRoles })}</span><div className="onboarding-role-grid">{resources.roles.map(role => <label className="onboarding-role" key={role.id}><input type="checkbox" checked={settings.autoRoleIds.includes(role.id)} disabled={!settings.autoRoleIds.includes(role.id) && settings.autoRoleIds.length >= settings.limits.maxAutoRoles} onChange={() => toggleRole(role.id)} /><span>@{role.name}</span></label>)}</div></div>
+				</section>
 			</div>
-
-			<section className="panel onboarding-panel">
-				<div className="onboarding-panel-heading"><UserPlus size={20} /><div><h2>{t('onboarding.welcomeTitle')}</h2><p>{t('onboarding.welcomeDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.welcomeEnabled} onChange={event => update('welcomeEnabled', event.target.checked)} /><span>{t('onboarding.enabled')}</span></label></div>
-				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.welcomeChannelId} onChange={value => update('welcomeChannelId', value || null)} /></label>{!settings.welcomeTemplate && <label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.welcomeMessage} onChange={event => update('welcomeMessage', event.target.value)} /><span className="form-hint">{t('onboarding.welcomeVariables')}</span></label>}</div>
-				<ComponentsV2Editor value={settings.welcomeTemplate} fallbackMessage={settings.welcomeMessage} onChange={value => update('welcomeTemplate', value)} variablesHint={t('onboarding.welcomeVariables')} limits={settings.limits.componentsV2} />
-			</section>
-
-			<section className="panel onboarding-panel">
-				<div className="onboarding-panel-heading"><UserMinus size={20} /><div><h2>{t('onboarding.farewellTitle')}</h2><p>{t('onboarding.farewellDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.farewellEnabled} onChange={event => update('farewellEnabled', event.target.checked)} /><span>{t('onboarding.enabled')}</span></label></div>
-				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.channel')}</span><ChannelSelect channels={resources.channels} value={settings.farewellChannelId} onChange={value => update('farewellChannelId', value || null)} /></label>{!settings.farewellTemplate && <label className="form-stack onboarding-message"><span className="form-label">{t('onboarding.message')}</span><textarea className="form-input form-textarea" maxLength={1000} value={settings.farewellMessage} onChange={event => update('farewellMessage', event.target.value)} /><span className="form-hint">{t('onboarding.farewellVariables')}</span></label>}</div>
-				<ComponentsV2Editor value={settings.farewellTemplate} fallbackMessage={settings.farewellMessage} onChange={value => update('farewellTemplate', value)} variablesHint={t('onboarding.farewellVariables')} limits={settings.limits.componentsV2} />
-			</section>
-
-			<section className="panel onboarding-panel">
-				<div className="onboarding-panel-heading"><ShieldCheck size={20} /><div><h2>{t('onboarding.safetyTitle')}</h2><p>{t('onboarding.safetyDescription')}</p></div><label className="switch-row"><input type="checkbox" checked={settings.accountAgeAlertEnabled} onChange={event => update('accountAgeAlertEnabled', event.target.checked)} /><span>{t('onboarding.alertsEnabled')}</span></label></div>
-				<div className="onboarding-grid"><label className="form-stack"><span className="form-label">{t('onboarding.alertChannel')}</span><ChannelSelect channels={resources.channels} value={settings.accountAgeAlertChannelId} onChange={value => update('accountAgeAlertChannelId', value || null)} /></label><label className="form-stack"><span className="form-label">{t('onboarding.minimumAge')}</span><input className="form-input" type="number" min="1" max={settings.limits.maxAccountAgeDays} value={settings.accountAgeMinimumDays} onChange={event => update('accountAgeMinimumDays', Number(event.target.value))} /></label></div>
-				<div className="form-stack"><span className="form-label">{t('onboarding.autoRoles', { count: settings.autoRoleIds.length, max: settings.limits.maxAutoRoles })}</span><div className="onboarding-role-grid">{resources.roles.map(role => <label className="onboarding-role" key={role.id}><input type="checkbox" checked={settings.autoRoleIds.includes(role.id)} disabled={!settings.autoRoleIds.includes(role.id) && settings.autoRoleIds.length >= settings.limits.maxAutoRoles} onChange={() => toggleRole(role.id)} /><span>@{role.name}</span></label>)}</div></div>
-			</section>
-		</div>
-	);
+		);
 }

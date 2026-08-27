@@ -312,7 +312,7 @@ async function handleComponent(interaction, patchConfig) {
 export default {
 	data: new SlashCommandBuilder()
 		.setName('patch-notes')
-		.setDescription('Configure the automated patch note tracker')
+		.setDescription('Configure the RSS & GitHub release tracker')
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
 	async execute(interaction) {

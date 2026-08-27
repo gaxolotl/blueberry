@@ -41,6 +41,15 @@ export const SETTING_CATEGORIES = [
 				],
 			},
 			{
+				type: 'text',
+				key: 'commandPrefix',
+				labelKey: 'settings.commandPrefix',
+				hintKey: 'settings.commandPrefixHint',
+				placeholderKey: 'settings.commandPrefixPlaceholder',
+				maxLength: 10,
+				default: '-',
+			},
+			{
 				type: 'roleList',
 				key: 'manageRoleIds',
 				labelKey: 'settings.manageRoles',

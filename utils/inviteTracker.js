@@ -12,6 +12,11 @@ function normalizeInviteValue(value, fallback = 'unknown') {
 	return value;
 }
 
+function getAvatarHash(inviter) {
+	if (!inviter) return null;
+	return inviter.avatar ?? null;
+}
+
 function serializeInvite(invite, guild) {
 	const vanityCode = guild?.vanityURLCode;
 	const code = normalizeInviteValue(invite?.code, 'unknown');
@@ -27,6 +32,7 @@ function serializeInvite(invite, guild) {
 		link: buildInviteLink(code),
 		inviterId: normalizeInviteValue(invite?.inviter?.id, 'unknown'),
 		inviterTag: normalizeInviteValue(inviterTag, 'unknown'),
+		inviterAvatar: getAvatarHash(inviter),
 		channelId: normalizeInviteValue(invite?.channelId, 'unknown'),
 		channel: normalizeInviteValue(channelName, 'unknown'),
 		uses: normalizeInviteValue(invite?.uses, 'unknown'),
@@ -40,17 +46,26 @@ function serializeInvite(invite, guild) {
 
 function buildInviteRecord(member, guild, inviteData) {
 	const inviteCode = inviteData?.code ?? 'unknown';
+	const user = member?.user ?? {};
+	const createdTimestamp = user.createdTimestamp ?? null;
+	const accountAgeDays = createdTimestamp
+		? Math.max(0, Math.floor((Date.now() - createdTimestamp) / 86_400_000))
+		: null;
 
 	return {
 		joinedAt: new Date(),
 		memberId: member.id,
-		memberTag: member.user.tag,
+		memberTag: user.tag ?? user.username ?? 'unknown',
+		memberAvatar: user.avatar ?? null,
+		accountAgeDays,
+		isBot: Boolean(user.bot),
 		guildId: guild.id,
 		guildName: guild.name,
 		inviteCode,
 		inviteLink: inviteData?.link ?? buildInviteLink(inviteCode),
 		inviterId: inviteData?.inviterId ?? 'unknown',
 		inviterTag: inviteData?.inviterTag ?? 'unknown',
+		inviterAvatar: inviteData?.inviterAvatar ?? null,
 		channel: inviteData?.channel ?? 'unknown',
 		channelId: inviteData?.channelId ?? 'unknown',
 		uses: inviteData?.uses ?? 'unknown',
@@ -84,8 +99,13 @@ async function appendInviteRecord(record) {
 	return InviteJoin.create(record);
 }
 
+/**
+ * Fetches a fresh snapshot of the guild's invites, bypassing the cache.
+ * @param {import('discord.js').Guild} guild
+ * @returns {Promise<Map<string, object>>}
+ */
 async function snapshotGuildInvites(guild) {
-	const invites = await guild.invites.fetch();
+	const invites = await guild.invites.fetch({ cache: false });
 	const snapshot = new Map();
 	for (const invite of invites.values()) {
 		snapshot.set(invite.code, serializeInvite(invite, guild));
@@ -98,15 +118,95 @@ function getStoredInviteSnapshot(guildId) {
 	return inviteSnapshots.get(guildId);
 }
 
+/**
+ * Determines which invite was used for a join by diffing snapshots.
+ * Handles three cases:
+ *  - an invite whose `uses` counter increased;
+ *  - an invite created after the last snapshot that already shows one use;
+ *  - an invite that disappeared after reaching its max uses (temporary/limited).
+ * @param {Map<string, object>|undefined} previousSnapshot
+ * @param {Map<string, object>|undefined} currentSnapshot
+ * @returns {object|null}
+ */
 function findInviteThatWasUsed(previousSnapshot, currentSnapshot) {
-	if (!previousSnapshot || !currentSnapshot) return null;
-	for (const [code, currentInvite] of currentSnapshot.entries()) {
-		const previousInvite = previousSnapshot.get(code);
-		if (previousInvite && previousInvite.uses !== 'unknown' && currentInvite.uses !== 'unknown' && previousInvite.uses < currentInvite.uses) {
-			return currentInvite;
+	if (!currentSnapshot) return null;
+
+	// Case 1: an existing invite's usage count went up.
+	if (previousSnapshot) {
+		for (const [code, currentInvite] of currentSnapshot.entries()) {
+			const previousInvite = previousSnapshot.get(code);
+			if (previousInvite
+				&& previousInvite.uses !== 'unknown'
+				&& currentInvite.uses !== 'unknown'
+				&& previousInvite.uses < currentInvite.uses) {
+				return currentInvite;
+			}
 		}
 	}
+
+	// Case 2: an invite that wasn't in the previous snapshot already shows a use.
+	// This catches invites created after the bot's last snapshot.
+	for (const [code, currentInvite] of currentSnapshot.entries()) {
+		if (currentInvite.uses !== 'unknown' && Number(currentInvite.uses) >= 1) {
+			if (!previousSnapshot || !previousSnapshot.has(code)) {
+				return currentInvite;
+			}
+		}
+	}
+
+	// Case 3: an invite that was consumed and removed (e.g. maxUses reached).
+	if (previousSnapshot) {
+		for (const [code, previousInvite] of previousSnapshot.entries()) {
+			if (!currentSnapshot.has(code)
+				&& previousInvite.uses !== 'unknown'
+				&& Number(previousInvite.uses) >= 1
+				&& previousInvite.maxUses !== 'unknown'
+				&& Number(previousInvite.uses) >= Number(previousInvite.maxUses) - 1) {
+				return previousInvite;
+			}
+		}
+	}
+
 	return null;
+}
+
+/**
+ * Aggregates invite join statistics for a guild.
+ * @param {string} guildId
+ * @returns {Promise<object>}
+ */
+async function getInviteStats(guildId) {
+	const [total, known, unknown, vanity, topInvites, topInviters, last7, last30] = await Promise.all([
+		InviteJoin.countDocuments({ guildId }),
+		InviteJoin.countDocuments({ guildId, inviteCode: { $ne: 'unknown' } }),
+		InviteJoin.countDocuments({ guildId, inviteCode: 'unknown' }),
+		InviteJoin.countDocuments({ guildId, vanityUrlJoin: true }),
+		InviteJoin.aggregate([
+			{ $match: { guildId, inviteCode: { $ne: 'unknown' } } },
+			{ $group: { _id: '$inviteCode', count: { $sum: 1 } } },
+			{ $sort: { count: -1 } },
+			{ $limit: 10 },
+		]),
+		InviteJoin.aggregate([
+			{ $match: { guildId, inviterId: { $ne: 'unknown' } } },
+			{ $group: { _id: '$inviterId', tag: { $last: '$inviterTag' }, count: { $sum: 1 } } },
+			{ $sort: { count: -1 } },
+			{ $limit: 10 },
+		]),
+		InviteJoin.countDocuments({ guildId, joinedAt: { $gte: new Date(Date.now() - 7 * 86_400_000) } }),
+		InviteJoin.countDocuments({ guildId, joinedAt: { $gte: new Date(Date.now() - 30 * 86_400_000) } }),
+	]);
+
+	return {
+		total,
+		known,
+		unknown,
+		vanity,
+		last7Days: last7,
+		last30Days: last30,
+		topInvites,
+		topInviters,
+	};
 }
 
 export {
@@ -117,4 +217,5 @@ export {
 	snapshotGuildInvites,
 	getStoredInviteSnapshot,
 	findInviteThatWasUsed,
+	getInviteStats,
 };
